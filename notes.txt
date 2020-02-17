@@ -1,0 +1,19 @@
+The purpose of this document is to keep track of things you realize or do while
+working in the se3cnn package. Pretty much anything that helps people learn
+what's going on in this project, helps you remember important stuff, etc., 
+is relevant for this. 
+
+Example of format to be followed:
+
+_______________
+Name: Dave J
+Date: Feb 16, 2020
+Subj: Creating notes.txt
+Note: Today I realized it would probably be a good idea to make this document.
+
+
+______________
+Name: Dave J
+Date: Feb 16, 2020
+Subj: Messing around in the se3cnn_v1 workspace.  
+Note:
