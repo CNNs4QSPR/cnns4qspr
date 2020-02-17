@@ -2,8 +2,8 @@ import torch.nn as nn
 
 from functools import partial
 
-from experiments.util.arch_blocks import *
-from se3cnn import kernel
+from cath.util.arch_blocks import *
+from se3cnn.image import kernel
 
 
 class network(ResNet):
@@ -41,4 +41,6 @@ class network(ResNet):
             OuterBlock(features[3][-1][-1], features[4], size=args.kernel_size, stride=2),
             AvgSpacial(),
             nn.Dropout(p=args.p_drop_fully, inplace=True) if args.p_drop_fully is not None else None,
-            nn.Linear(features[4][-1][-1][0], n_output))
+            # nn.Linear(features[4][-1][-1][0], n_output))
+            VAE(features[4][-1][-1][0])
+            )

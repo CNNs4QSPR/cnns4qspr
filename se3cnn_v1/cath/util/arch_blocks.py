@@ -281,6 +281,36 @@ class ResNet(nn.Module):
     def forward(self, x):
         return self.blocks(x)
 
+class VAE(nn.Module):
+    def __init__(self, in_repr):
+        super().__init__()
+
+        self.layers = []
+        self.layers.append(nn.Linear(in_repr, 256))
+        self.layers.append(nn.Linear(256, 20))
+        self.layers.append(nn.Linear(256, 20))
+        self.layers.append(nn.Linear(20, 256))
+        self.layers.append(nn.Linear(256, in_repr))
+
+        self.layers = nn.Sequential(*self.layers)
+
+    def encode(self, x):
+        h1 = F.relu(self.layers[0](x))
+        return self.layers[1](h1), self.layers[2](h1)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def decode(self, z):
+        h3 = F.relu(self.layers[3](z))
+        return torch.sigmoid(self.layers[4](h3))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x.view(-1, in_repr))
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
 
 
 class NonlinearityBlock(nn.Module):
