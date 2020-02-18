@@ -1,6 +1,7 @@
 import torch
 import torch.utils.data
 import torch.nn as nn
+from torch import optim
 from torch.nn import functional as F
 
 import numpy as np
@@ -30,6 +31,7 @@ def loss_function(recon_x, x, mu, logvar):
     # https://arxiv.org/abs/1312.6114
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    print(BCE, KLD)
 
     return BCE + KLD
 
@@ -56,7 +58,7 @@ def train_loop(model, train_loader, optimizer, epoch):
         # y = torch.autograd.Variable(target)
         # forward and backward propagation
         recon_out, mu, logvar = model(x)
-        t = torch.autograd.Variable(cnn_out, requires_grad=False)
+        t = torch.autograd.Variable(cnn_out)
 
         loss = loss_function(recon_out, t, mu, logvar)
         # losses = nn.functional.cross_entropy(out, y, reduce=False)
@@ -109,7 +111,7 @@ def infer(model, loader):
 
 ### Arguments
 
-# python orion_test.py --model SE3ResNet34 --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.1 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
+# python orion_test.py --model SE3ResNet34 --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
 
 parser = argparse.ArgumentParser()
 # required
@@ -270,6 +272,7 @@ model = network_module.network(n_input=n_input, n_output=n_output, args=args)
 
 param_groups = get_param_groups.get_param_groups(model, args)
 optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
+# optimizer = optim.Adam(model.parameters(), lr=args.initial_lr)
 optimizer.zero_grad()
 
 print("Network built...")

@@ -50,8 +50,8 @@ def get_param_groups(model, args):
     biases_normalization  = [p for m in normalizationLayers for n, p in m.named_parameters() if n.endswith('bias')]
     weights_fully = [p for m in linearLayers for n, p in m.named_parameters() if n.endswith('weight')]  # CROP OFF LAST WEIGHT !!!!! (classification layer)
     biases_fully  = [p for m in linearLayers for n, p in m.named_parameters() if n.endswith('bias')]  # CROP OFF LAST WEIGHT !!!!! (classification layer)
-    (weights_fully, weights_softmax) = (weights_fully[:-1], [weights_fully[-1]]) if weights_fully != [] else ([], [])
-    (biases_fully,  biases_softmax)  = (biases_fully[:-1],  [biases_fully[-1]])  if biases_fully  != [] else ([], [])
+    # (weights_fully, weights_softmax) = (weights_fully[:-1], [weights_fully[-1]]) if weights_fully != [] else ([], [])
+    # (biases_fully,  biases_softmax)  = (biases_fully[:-1],  [biases_fully[-1]])  if biases_fully  != [] else ([], [])
     biases_activs = [p for m in normActivs for n, p in m.named_parameters() if n.endswith('bias')]
 
     for np_tuple in model.named_parameters():
@@ -63,8 +63,8 @@ def get_param_groups(model, args):
                     dict(params=biases_normalization,  lamb_L1=lamb_dict['lamb_normalization_bias_L1'],   lamb_L2=lamb_dict['lamb_normalization_bias_L2']),
                     dict(params=weights_fully,         lamb_L1=lamb_dict['lamb_linear_weight_L1'],        lamb_L2=lamb_dict['lamb_linear_weight_L2']),
                     dict(params=biases_fully,          lamb_L1=lamb_dict['lamb_linear_bias_L1'],          lamb_L2=lamb_dict['lamb_linear_bias_L2']),
-                    dict(params=weights_softmax,       lamb_L1=lamb_dict['lamb_softmax_weight_L1'],       lamb_L2=lamb_dict['lamb_softmax_weight_L2']),
-                    dict(params=biases_softmax,        lamb_L1=lamb_dict['lamb_softmax_bias_L1'],         lamb_L2=lamb_dict['lamb_softmax_bias_L2']),
+                    # dict(params=weights_softmax,       lamb_L1=lamb_dict['lamb_softmax_weight_L1'],       lamb_L2=lamb_dict['lamb_softmax_weight_L2']),
+                    # dict(params=biases_softmax,        lamb_L1=lamb_dict['lamb_softmax_bias_L1'],         lamb_L2=lamb_dict['lamb_softmax_bias_L2']),
                     dict(params=biases_activs,         lamb_L1=lamb_dict['lamb_norm_activ_bias_L1'],      lamb_L2=lamb_dict['lamb_norm_activ_bias_L2'])]
 
     # Check whether all parameters are in groups

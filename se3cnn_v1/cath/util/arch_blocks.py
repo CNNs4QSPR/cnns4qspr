@@ -91,7 +91,7 @@ class ResBlock(nn.Module):
         if self.shortcut is not None:
             out += self.shortcut(x)
         out = self.activation(out)
-        print(out.shape, "ResBlock")
+        # print(out.shape, "ResBlock")
         return out
 
 
@@ -170,7 +170,7 @@ class SE3GatedResBlock(nn.Module):
         if self.shortcut is not None:
             out += self.shortcut(x)
             out = self.activation(out)
-        print(out.shape, "SE3GatedResBlock")
+        # print(out.shape, "SE3GatedResBlock")
         return out
 
 
@@ -272,7 +272,7 @@ class OuterBlock(nn.Module):
 
     def forward(self, x):
         out = self.layers(x)
-        print(out.shape, "OuterBlock")
+        # print(out.shape, "OuterBlock")
         return out
 
 
