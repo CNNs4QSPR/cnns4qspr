@@ -16,6 +16,12 @@ import argparse
 from cath.datasets.cath.cath import Cath
 from cath.util import *
 
+cnn_out = None
+
+def cnn_hook(module, input_, output):
+    global cnn_out
+    cnn_out = output
+
 def loss_function(recon_x, x, mu, logvar):
     BCE = F.binary_cross_entropy(recon_x, x.view(-1, 512), reduction='sum')
 
@@ -38,18 +44,21 @@ def train_loop(model, train_loader, optimizer, epoch):
     training_losses = []
     training_outs = []
     training_accs = []
+    print(len(train_loader))
     for batch_idx, (data, target) in enumerate(train_loader):
+        print(batch_idx)
         time_start = time.perf_counter()
 
-        target = torch.LongTensor(target)
+        # target = torch.LongTensor(target)
         # if use_gpu:
         #     data, target = data.cuda(), target.cuda()
         x = torch.autograd.Variable(data)
-        y = torch.autograd.Variable(target)
+        # y = torch.autograd.Variable(target)
         # forward and backward propagation
         recon_out, mu, logvar = model(x)
+        t = torch.autograd.Variable(cnn_out, requires_grad=False)
 
-        loss = loss_function(recon_out, out, mu, logvar)
+        loss = loss_function(recon_out, t, mu, logvar)
         # losses = nn.functional.cross_entropy(out, y, reduce=False)
         # loss = losses.mean()
         loss.backward()
@@ -57,16 +66,16 @@ def train_loop(model, train_loader, optimizer, epoch):
             optimizer.step()
             optimizer.zero_grad()
 
-        _, argmax = torch.max(out, 1)
-        acc = (argmax.squeeze() == y).float().mean()
+        _, argmax = torch.max(recon_out, 1)
+        acc = (argmax.squeeze() == t).float().mean()
 
         training_losses.append(loss.data.cpu().numpy())
-        training_outs.append(out.data.cpu().numpy())
-        training_accs.append(acc.data[0])
+        training_outs.append(recon_out.data.cpu().numpy())
+        training_accs.append(acc.item())
 
-        log_obj.write("[{}:{}/{}] loss={:.4} acc={:.3} time={:.2}".format(
+        log_obj.write("[{}:{}/{}] loss={:.4} time={:.2}".format(
             epoch, batch_idx, len(train_loader),
-            float(loss.data[0]), float(acc.data[0]),
+            float(loss.item()), float(acc.item()),
             time.perf_counter() - time_start))
 
     loss_avg = np.mean(training_losses)
@@ -100,7 +109,7 @@ def infer(model, loader):
 
 ### Arguments
 
-# python test.py --model SE3ResNet34 --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.1 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
+# python orion_test.py --model SE3ResNet34 --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.1 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
 
 parser = argparse.ArgumentParser()
 # required
@@ -196,14 +205,23 @@ args, unparsed = parser.parse_known_args()
 
 
 ### Loading Data
-train_set = torch.utils.data.ConcatDataset([
-    Cath(args.data_filename, split=i, download=False,
+train_set = Cath(
+         args.data_filename, split=0, download=False,
          randomize_orientation=args.randomize_orientation,
          discretization_bins=args.data_discretization_bins,
-         discretization_bin_size=args.data_discretization_bin_size) for i in range(7)])
+         discretization_bin_size=args.data_discretization_bin_size)
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=False, drop_last=True)
-n_input = train_set.datasets[0].n_atom_types
-n_output = len(train_set.datasets[0].label_set)
+n_input = train_set.n_atom_types
+n_output = len(train_set.label_set)
+
+# train_set = torch.utils.data.ConcatDataset([
+#     Cath(args.data_filename, split=i, download=False,
+#          randomize_orientation=args.randomize_orientation,
+#          discretization_bins=args.data_discretization_bins,
+#          discretization_bin_size=args.data_discretization_bin_size) for i in range(7)])
+# train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=False, drop_last=True)
+# n_input = train_set.datasets[0].n_atom_types
+# n_output = len(train_set.datasets[0].label_set)
 
 validation_set = Cath(
          args.data_filename, split=7, download=False,
@@ -227,7 +245,7 @@ else:
     timestamp = time.strftime("%Y-%m-%d_%H:%M:%S", time.gmtime())
     os.makedirs('{:s}/checkpoints'.format(basepath), exist_ok=True)
 
-checkpoint_latest_n = 5
+checkpoint_latest_n = 1
 checkpoint_path_latest_n = '{:s}/checkpoints/{:s}_latest__n__.ckpt'.format(basepath, timestamp)
 checkpoint_path_best   = '{:s}/checkpoints/{:s}_best.ckpt'.format(basepath, timestamp)
 checkpoint_path_best_window_avg   = '{:s}/checkpoints/{:s}_best_window_avg.ckpt'.format(basepath, timestamp)
@@ -255,49 +273,41 @@ optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
 optimizer.zero_grad()
 
 print("Network built...")
-counter = 0
-for data in train_loader:
-    inputs, labels = data
-    if counter == 0:
-        # x = inputs.numpy()[0,:,:,:,:]
-        # x = torch.from_numpy(x)
-        x = inputs
-        break
 
-
-cnn_output = None
-
-def cnn_hook(module, input_, output):
-    global cnn_output
-    cnn_output = output
-
+### Test Space
+# counter = 0
+# for data in train_loader:
+#     inputs, labels = data
+#     if counter == 0:
+#         # x = inputs.numpy()[0,:,:,:,:]
+#         # x = torch.from_numpy(x)
+#         x = inputs
+#         break
+#
+#
 model.blocks[5].register_forward_hook(cnn_hook)
-# model.blocks[4].register_forward_hook(cnn_hook)
-model.eval()
-recon_out, mu, logvar = model(x)
-print(recon_out.shape, mu.shape, logvar.shape)
-print(cnn_output.shape)
-# model.blocks[4].layers[-1].shortcut[0].conv.register_forward_hook(cnn_hook)
+# # model.blocks[4].register_forward_hook(cnn_hook)
 # model.eval()
 # recon_out, mu, logvar = model(x)
 # print(recon_out.shape, mu.shape, logvar.shape)
 # print(cnn_output.shape)
 
-# epoch_start_index = 0
-# best_validication_acc = -float('inf')
-# best_avg_validation_acc = -float('inf')
-# latest_validation_accs = []
-# if checkpoint is not None:
-#     log_obj.write("Restoring model from: " + checkpoint_path_restore)
-#     model.load_state_dict(checkpoint['state_dict'])
-#     optimizer.load_state_dict(checkpoint['optimizer'])
-#     epoch_start_index = checkpoint['epoch']+1
-#     best_validation_acc = checkpoint['best_validation_acc']
-#     best_avg_validation_acc = checkpoint['best_avg_validation_acc']
-#     latest_validation_accs = checkpoint['latest_validation_accs']
-#
-# tf_logger, tensorflow_available = tensorflow_logger.get_tf_logger(basepath=basepath, timestamp=timestamp)
-#
+
+epoch_start_index = 0
+best_validication_acc = -float('inf')
+best_avg_validation_acc = -float('inf')
+latest_validation_accs = []
+if checkpoint is not None:
+    log_obj.write("Restoring model from: " + checkpoint_path_restore)
+    model.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    epoch_start_index = checkpoint['epoch']+1
+    best_validation_acc = checkpoint['best_validation_acc']
+    best_avg_validation_acc = checkpoint['best_avg_validation_acc']
+    latest_validation_accs = checkpoint['latest_validation_accs']
+
+tf_logger, tensorflow_available = tensorflow_logger.get_tf_logger(basepath=basepath, timestamp=timestamp)
+
 # if args.mode == 'train':
 #
 #     for epoch in range(epoch_start_index, args.training_epochs):
@@ -306,127 +316,239 @@ print(cnn_output.shape)
 #         optimizer, _ = lr_schedulers.lr_scheduler_exponential(optimizer, epoch, args.initial_lr, args.lr_decay_start,
 #                                                               args.lr_decay_base, verbose=True)
 #
-#         loss_avg, acc_avg, training_outs, training_losses = train_loop(model, train_loader, optimizer, epoch)
+#         loss_avg, training_outs, training_losses = train_loop(model, train_loader, optimizer, epoch)
 #
 #         if (epoch+1) % args.report_frequency != 0:
 #             continue
 #
-#         validation_outs, ys, validation_losses = infer(model, validation_loader)
-#
-#         # compute the accuracy
-#         validation_acc = np.sum(validation_outs.argmax(-1) == ys) / len(ys)
-#
-#         validation_loss_avg = np.mean(validation_losses)
-#
-#         log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
-#             epoch, len(train_loader)-1, len(train_loader),
-#             loss_avg, acc_avg))
-#         log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
-#             epoch, len(train_loader)-1, len(train_loader),
-#             validation_loss_avg, validation_acc))
-#
-#         log_obj.write('VALIDATION losses: ' + str(validation_losses))
-#
-#         if args.report_on_test_set:
-#             test_outs, test_ys, test_losses = infer(model,
-#                                                test_loader)
-#
-#             # compute the accuracy
-#             test_acc = np.sum(test_outs.argmax(-1) == test_ys) / len(test_ys)
-#
-#             test_loss_avg = np.mean(test_losses)
-#
-#             log_obj.write(
-#                 'TEST SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
-#                     epoch, len(train_loader) - 1, len(train_loader),
-#                     test_loss_avg, test_acc))
-#
+#         # validation_outs, ys, validation_losses = infer(model, validation_loader)
+#         #
+#         # # compute the accuracy
+#         # validation_acc = np.sum(validation_outs.argmax(-1) == ys) / len(ys)
+#         #
+#         # validation_loss_avg = np.mean(validation_losses)
+#         #
+#         # log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+#         #     epoch, len(train_loader)-1, len(train_loader),
+#         #     loss_avg, acc_avg))
+#         # log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+#         #     epoch, len(train_loader)-1, len(train_loader),
+#         #     validation_loss_avg, validation_acc))
+#         #
+#         # log_obj.write('VALIDATION losses: ' + str(validation_losses))
+#         #
+#         # if args.report_on_test_set:
+#         #     test_outs, test_ys, test_losses = infer(model,
+#         #                                        test_loader)
+#         #
+#         #     # compute the accuracy
+#         #     test_acc = np.sum(test_outs.argmax(-1) == test_ys) / len(test_ys)
+#         #
+#         #     test_loss_avg = np.mean(test_losses)
+#         #
+#         #     log_obj.write(
+#         #         'TEST SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+#         #             epoch, len(train_loader) - 1, len(train_loader),
+#         #             test_loss_avg, test_acc))
+#         #
 #         # ============ TensorBoard logging ============ #
-#         if tensorflow_available:
-#             # (1) Log the scalar values
-#             info = {'training set avg loss': loss_avg,
-#                     'training set accuracy': acc_avg,
-#                     'validation set avg loss': validation_loss_avg,
-#                     'validation set accuracy': validation_acc}
-#             if args.report_on_test_set:
-#                 info.update({'test set avg loss': test_loss_avg,
-#                              'test set accuracy': test_acc})
-#             for tag, value in info.items():
-#                 tf_logger.scalar_summary(tag, value, step=epoch+1)
-#
-#             # (2) Log values and gradients of the parameters (histogram)
-#             for tag, value in model.named_parameters():
-#                 tag = tag.replace('.', '/')
-#                 tf_logger.histo_summary(tag,         value.data.cpu().numpy(),      step=epoch+1)
-#                 tf_logger.histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), step=epoch+1)
-#
-#             # (3) Log losses for all datapoints in validation and training set
-#             tf_logger.histo_summary("losses/validation/", validation_losses, step=epoch+1)
-#             tf_logger.histo_summary("losses/training",    training_losses,   step=epoch+1)
-#
-#             # (4) Log logits for all datapoints in validation and training set
-#             for i in range(n_output):
-#                 tf_logger.histo_summary("logits/%d/validation" % i, validation_outs[:, i], step=epoch+1)
-#                 tf_logger.histo_summary("logits/%d/training" % i,   training_outs[:, i],   step=epoch+1)
-#
-#
-#         # saving of latest state
-#         for n in range(0, checkpoint_latest_n-1)[::-1]:
-#             source = checkpoint_path_latest_n.replace('__n__', '_'+str(n))
-#             target = checkpoint_path_latest_n.replace('__n__', '_'+str(n+1))
-#             if os.path.exists(source):
-#                 os.rename(source, target)
+#         # if tensorflow_available:
+#         #     # (1) Log the scalar values
+#         #     info = {'training set avg loss': loss_avg,
+#         #             'training set accuracy': acc_avg,
+#         #             'validation set avg loss': validation_loss_avg,
+#         #             'validation set accuracy': validation_acc}
+#         #     if args.report_on_test_set:
+#         #         info.update({'test set avg loss': test_loss_avg,
+#         #                      'test set accuracy': test_acc})
+#         #     for tag, value in info.items():
+#         #         tf_logger.scalar_summary(tag, value, step=epoch+1)
+#         #
+#         #     # (2) Log values and gradients of the parameters (histogram)
+#         #     for tag, value in model.named_parameters():
+#         #         tag = tag.replace('.', '/')
+#         #         tf_logger.histo_summary(tag,         value.data.cpu().numpy(),      step=epoch+1)
+#         #         tf_logger.histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), step=epoch+1)
+#         #
+#         #     # (3) Log losses for all datapoints in validation and training set
+#         #     tf_logger.histo_summary("losses/validation/", validation_losses, step=epoch+1)
+#         #     tf_logger.histo_summary("losses/training",    training_losses,   step=epoch+1)
+#         #
+#         #     # (4) Log logits for all datapoints in validation and training set
+#         #     for i in range(n_output):
+#         #         tf_logger.histo_summary("logits/%d/validation" % i, validation_outs[:, i], step=epoch+1)
+#         #         tf_logger.histo_summary("logits/%d/training" % i,   training_outs[:, i],   step=epoch+1)
+#         #
+#         #
+#         # # saving of latest state
+#         # for n in range(0, checkpoint_latest_n-1)[::-1]:
+#         #     source = checkpoint_path_latest_n.replace('__n__', '_'+str(n))
+#         #     target = checkpoint_path_latest_n.replace('__n__', '_'+str(n+1))
+#         #     if os.path.exists(source):
+#         #         os.rename(source, target)
 #
 #         torch.save({'state_dict': model.state_dict(),
 #                     'optimizer': optimizer.state_dict(),
 #                     'epoch': epoch,
-#                     'best_validation_acc': best_validation_acc,
-#                     'best_avg_validation_acc': best_avg_validation_acc,
-#                     'latest_validation_accs': latest_validation_accs,
+#                     #'best_validation_acc': best_validation_acc,
+#                     #'best_avg_validation_acc': best_avg_validation_acc,
+#                     #'latest_validation_accs': latest_validation_accs,
 #                     'timestamp': timestamp},
 #                     checkpoint_path_latest_n.replace('__n__', '_0'))
 #
-#         latest_validation_accs.append(validation_acc)
-#         if len(latest_validation_accs) > checkpoint_latest_n:
-#             latest_validation_accs.pop(0)
-#         latest_validation_accs_avg = -float('inf')
-#         if len(latest_validation_accs) == checkpoint_latest_n:
-#             latest_validation_accs_avg = np.average(latest_validation_accs)
-#
-#         # optional saving of best validation state
-#         improved = False
-#         if epoch > args.burnin_epochs:
-#             if validation_acc > best_validation_acc:
-#                 best_validation_acc = validation_acc
-#                 copyfile(src=checkpoint_path_latest_n.replace('__n__', '_0'), dst=checkpoint_path_best)
-#                 log_obj.write('Best validation accuracy until now - updated best model')
-#                 improved = True
-#             if latest_validation_accs_avg > best_avg_validation_acc:
-#                 best_avg_validation_acc = latest_validation_accs_avg
-#                 copyfile(src=checkpoint_path_latest_n.replace('__n__', '_'+str(checkpoint_latest_n//2)),
-#                          dst=checkpoint_path_best_window_avg)
-#                 log_obj.write('Best validation accuracy (window average)_until now - updated best (window averaged) model')
-#                 improved = True
-#             if not improved:
-#                 log_obj.write('Validation loss did not improve')
-#
-#
-# elif args.mode == 'validate':
-#     out, y, validation_losses = infer(model, validation_loader)
-#
-#     # compute the accuracy
-#     validation_acc = np.sum(out.argmax(-1) == y) / len(y)
-#     validation_loss_avg = np.mean(validation_losses)
-#
-#     log_obj.write('VALIDATION SET: loss={:.4} acc={:.3}'.format(
-#         validation_loss_avg, validation_acc))
-#
-# elif args.mode == 'test':
-#     out, y, test_losses = infer(model, test_loader)
-#
-#     # compute the accuracy
-#     test_acc = np.sum(out.argmax(-1) == y) / len(y)
-#     test_loss_avg = np.mean(test_losses)
-#
-#     log_obj.write('TEST SET: loss={:.4} acc={:.3}'.format(
-#         test_loss_avg, test_acc))
+#         # latest_validation_accs.append(validation_acc)
+#         # if len(latest_validation_accs) > checkpoint_latest_n:
+#         #     latest_validation_accs.pop(0)
+#         # latest_validation_accs_avg = -float('inf')
+#         # if len(latest_validation_accs) == checkpoint_latest_n:
+#         #     latest_validation_accs_avg = np.average(latest_validation_accs)
+#         #
+#         # # optional saving of best validation state
+#         # improved = False
+#         # if epoch > args.burnin_epochs:
+#         #     if validation_acc > best_validation_acc:
+#         #         best_validation_acc = validation_acc
+#         #         copyfile(src=checkpoint_path_latest_n.replace('__n__', '_0'), dst=checkpoint_path_best)
+#         #         log_obj.write('Best validation accuracy until now - updated best model')
+#         #         improved = True
+#         #     if latest_validation_accs_avg > best_avg_validation_acc:
+#         #         best_avg_validation_acc = latest_validation_accs_avg
+#         #         copyfile(src=checkpoint_path_latest_n.replace('__n__', '_'+str(checkpoint_latest_n//2)),
+#         #                  dst=checkpoint_path_best_window_avg)
+#         #         log_obj.write('Best validation accuracy (window average)_until now - updated best (window averaged) model')
+#         #         improved = True
+#         #     if not improved:
+#         #         log_obj.write('Validation loss did not improve')
+
+if args.mode == 'train':
+
+    for epoch in range(epoch_start_index, args.training_epochs):
+
+        # decay learning rate
+        optimizer, _ = lr_schedulers.lr_scheduler_exponential(optimizer, epoch, args.initial_lr, args.lr_decay_start,
+                                                              args.lr_decay_base, verbose=True)
+
+        loss_avg, acc_avg, training_outs, training_losses = train_loop(model, train_loader, optimizer, epoch)
+
+        if (epoch+1) % args.report_frequency != 0:
+            continue
+
+        # validation_outs, ys, validation_losses = infer(model, validation_loader)
+        #
+        # # compute the accuracy
+        # validation_acc = np.sum(validation_outs.argmax(-1) == ys) / len(ys)
+        #
+        # validation_loss_avg = np.mean(validation_losses)
+
+        log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+            epoch, len(train_loader)-1, len(train_loader),
+            loss_avg, acc_avg))
+        # log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+        #     epoch, len(train_loader)-1, len(train_loader),
+        #     validation_loss_avg, validation_acc))
+        #
+        # log_obj.write('VALIDATION losses: ' + str(validation_losses))
+        #
+        # if args.report_on_test_set:
+        #     test_outs, test_ys, test_losses = infer(model,
+        #                                        test_loader)
+        #
+        #     # compute the accuracy
+        #     test_acc = np.sum(test_outs.argmax(-1) == test_ys) / len(test_ys)
+        #
+        #     test_loss_avg = np.mean(test_losses)
+        #
+        #     log_obj.write(
+        #         'TEST SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+        #             epoch, len(train_loader) - 1, len(train_loader),
+        #             test_loss_avg, test_acc))
+        #
+        # ============ TensorBoard logging ============ #
+        # if tensorflow_available:
+        #     # (1) Log the scalar values
+        #     info = {'training set avg loss': loss_avg,
+        #             'training set accuracy': acc_avg,
+        #             'validation set avg loss': validation_loss_avg,
+        #             'validation set accuracy': validation_acc}
+        #     if args.report_on_test_set:
+        #         info.update({'test set avg loss': test_loss_avg,
+        #                      'test set accuracy': test_acc})
+        #     for tag, value in info.items():
+        #         tf_logger.scalar_summary(tag, value, step=epoch+1)
+        #
+        #     # (2) Log values and gradients of the parameters (histogram)
+        #     for tag, value in model.named_parameters():
+        #         tag = tag.replace('.', '/')
+        #         tf_logger.histo_summary(tag,         value.data.cpu().numpy(),      step=epoch+1)
+        #         tf_logger.histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), step=epoch+1)
+        #
+        #     # (3) Log losses for all datapoints in validation and training set
+        #     tf_logger.histo_summary("losses/validation/", validation_losses, step=epoch+1)
+        #     tf_logger.histo_summary("losses/training",    training_losses,   step=epoch+1)
+        #
+        #     # (4) Log logits for all datapoints in validation and training set
+        #     for i in range(n_output):
+        #         tf_logger.histo_summary("logits/%d/validation" % i, validation_outs[:, i], step=epoch+1)
+        #         tf_logger.histo_summary("logits/%d/training" % i,   training_outs[:, i],   step=epoch+1)
+
+
+        # saving of latest state
+        for n in range(0, checkpoint_latest_n-1)[::-1]:
+            source = checkpoint_path_latest_n.replace('__n__', '_'+str(n))
+            target = checkpoint_path_latest_n.replace('__n__', '_'+str(n+1))
+            if os.path.exists(source):
+                os.rename(source, target)
+
+        torch.save({'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'epoch': epoch,
+                    #'best_validation_acc': best_validation_acc,
+                    #'best_avg_validation_acc': best_avg_validation_acc,
+                    #'latest_validation_accs': latest_validation_accs,
+                    'timestamp': timestamp},
+                    checkpoint_path_latest_n.replace('__n__', '_0'))
+
+        # latest_validation_accs.append(validation_acc)
+        # if len(latest_validation_accs) > checkpoint_latest_n:
+        #     latest_validation_accs.pop(0)
+        # latest_validation_accs_avg = -float('inf')
+        # if len(latest_validation_accs) == checkpoint_latest_n:
+        #     latest_validation_accs_avg = np.average(latest_validation_accs)
+        #
+        # # optional saving of best validation state
+        # improved = False
+        # if epoch > args.burnin_epochs:
+        #     if validation_acc > best_validation_acc:
+        #         best_validation_acc = validation_acc
+        #         copyfile(src=checkpoint_path_latest_n.replace('__n__', '_0'), dst=checkpoint_path_best)
+        #         log_obj.write('Best validation accuracy until now - updated best model')
+        #         improved = True
+        #     if latest_validation_accs_avg > best_avg_validation_acc:
+        #         best_avg_validation_acc = latest_validation_accs_avg
+        #         copyfile(src=checkpoint_path_latest_n.replace('__n__', '_'+str(checkpoint_latest_n//2)),
+        #                  dst=checkpoint_path_best_window_avg)
+        #         log_obj.write('Best validation accuracy (window average)_until now - updated best (window averaged) model')
+        #         improved = True
+        #     if not improved:
+        #         log_obj.write('Validation loss did not improve')
+
+
+elif args.mode == 'validate':
+    out, y, validation_losses = infer(model, validation_loader)
+
+    # compute the accuracy
+    validation_acc = np.sum(out.argmax(-1) == y) / len(y)
+    validation_loss_avg = np.mean(validation_losses)
+
+    log_obj.write('VALIDATION SET: loss={:.4} acc={:.3}'.format(
+        validation_loss_avg, validation_acc))
+
+elif args.mode == 'test':
+    out, y, test_losses = infer(model, test_loader)
+
+    # compute the accuracy
+    test_acc = np.sum(out.argmax(-1) == y) / len(y)
+    test_loss_avg = np.mean(test_losses)
+
+    log_obj.write('TEST SET: loss={:.4} acc={:.3}'.format(
+        test_loss_avg, test_acc))
