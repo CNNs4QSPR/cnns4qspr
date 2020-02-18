@@ -91,6 +91,7 @@ class ResBlock(nn.Module):
         if self.shortcut is not None:
             out += self.shortcut(x)
         out = self.activation(out)
+        print(out.shape, "ResBlock")
         return out
 
 
@@ -169,6 +170,7 @@ class SE3GatedResBlock(nn.Module):
         if self.shortcut is not None:
             out += self.shortcut(x)
             out = self.activation(out)
+        print(out.shape, "SE3GatedResBlock")
         return out
 
 
@@ -270,6 +272,7 @@ class OuterBlock(nn.Module):
 
     def forward(self, x):
         out = self.layers(x)
+        print(out.shape, "OuterBlock")
         return out
 
 
@@ -285,6 +288,7 @@ class VAE(nn.Module):
     def __init__(self, in_repr):
         super().__init__()
 
+        self.in_repr = in_repr
         self.layers = []
         self.layers.append(nn.Linear(in_repr, 256))
         self.layers.append(nn.Linear(256, 20))
@@ -308,7 +312,7 @@ class VAE(nn.Module):
         return torch.sigmoid(self.layers[4](h3))
 
     def forward(self, x):
-        mu, logvar = self.encode(x.view(-1, in_repr))
+        mu, logvar = self.encode(x.view(-1, self.in_repr))
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
