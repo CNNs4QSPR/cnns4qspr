@@ -17,7 +17,7 @@ import argparse
 from util import *
 from util.format_data import CathData
 
-# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling --restore-checkpoint-filename 2020-02-20_21:30:36_latest_0.ckpt
+# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
 
 cnn_out = None
 latent_space_mean = None
@@ -120,7 +120,9 @@ def infer(model, loader):
     latent_mean_outs = []
     latent_var_outs = []
     training_labels = []
-    for data,target in loader:
+    for batch_idx, (data,target) in enumerate(loader):
+        if batch_idx > 3:
+            break
         if use_gpu:
             data, target = data.cuda(), target.cuda()
         x = torch.autograd.Variable(data, volatile=True)
@@ -174,7 +176,26 @@ def train(checkpoint):
 
     if args.mode == 'train':
 
+        print("Training...")
+        train_batch_size = int(len(train_loader) / args.batch_size)
+        val_batch_size = int(len(validation_loader) / args.batch_size)
+        loss_avg_store = np.zeros((args.training_epochs,))
+        loss_avg_BCE_store = np.zeros((args.training_epochs,))
+        loss_avg_KLD_store = np.zeros((args.training_epochs,))
+        loss_avg_val_store = np.zeros((args.training_epochs,))
+        loss_avg_BCE_val_store = np.zeros((args.training_epochs,))
+        loss_avg_KLD_val_store = np.zeros((args.training_epochs,))
+        training_losses_store = np.zeros((args.training_epochs, train_batch_size))
+        training_labels_store = np.zeros((args.training_epochs, train_batch_size))
+        training_losses_val_store = np.zeros((args.training_epochs, val_batch_size))
+        training_labels_val_store = np.zeros((args.training_epochs, val_batch_size))
+        latent_mean_outs_store = np.zeros((args.training_epochs, train_batch_size, 20))
+        latent_var_outs_store = np.zeros((args.training_epochs, train_batch_size, 20))
+        latent_mean_outs_val_store = np.zeros((args.training_epochs, train_batch_size, 20))
+        latent_var_outs_val_store = np.zeros((args.training_epochs, train_batch_size, 20))
+
         for epoch in range(epoch_start_index, args.training_epochs):
+            epoch_id = epoch - epoch_start_index
 
             # decay learning rate
             optimizer, _ = lr_schedulers.lr_scheduler_exponential(optimizer, epoch, args.initial_lr, args.lr_decay_start,
@@ -186,6 +207,36 @@ def train(checkpoint):
                 continue
 
             loss_avg_val, loss_avg_BCE_val, loss_avg_KLD_val, training_losses_val, latent_mean_outs_val, latent_var_outs_val, training_labels_val = infer(model, validation_loader)
+
+            loss_avg_store[epoch_id] = loss_avg
+            loss_avg_BCE_store[epoch_id] = loss_avg_BCE
+            loss_avg_KLD_store[epoch_id] = loss_avg_KLD
+            loss_avg_val_store[epoch_id] = loss_avg_val
+            loss_avg_BCE_val_store[epoch_id] = loss_avg_BCE_val
+            loss_avg_KLD_val_store[epoch_id] = loss_avg_KLD_val
+            training_losses_store[epoch_id,:4] = training_losses
+            training_labels_store[epoch_id,:4] = training_labels
+            training_losses_val_store[epoch_id,:4] = training_losses_val
+            training_labels_val_store[epoch_id,:4] = training_labels_val
+            latent_mean_outs_store[epoch_id,:4,:] = latent_mean_outs
+            latent_var_outs_store[epoch_id,:4,:] = latent_var_outs
+            latent_mean_outs_val_store[epoch_id,:4,:] = latent_mean_outs_val
+            latent_var_outs_val_store[epoch_id,:4,:] = latent_var_outs_val
+
+            np.save('{:s}/data/loss_avg.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/loss_avg_BCE.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/loss_avg_KLD.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/loss_avg_val.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/loss_avg_BCE_val.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/loss_avg_KLD_val.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/training_losses.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/training_labels.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/training_losses_val.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/training_labels_val.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/latent_mean_outs.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/latent_var_outs.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/latent_mean_outs_val.npy'.format(basepath), loss_avg_store)
+            np.save('{:s}/data/latent_var_outs_val.npy'.format(basepath), loss_avg_store)
 
             log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4}'.format(
                 epoch, len(train_loader)-1, len(train_loader),
@@ -210,31 +261,31 @@ def train(checkpoint):
             #             test_loss_avg, test_acc))
 
             # saving of latest state
-            for n in range(0, checkpoint_latest_n-1)[::-1]:
-                source = checkpoint_path_latest_n.replace('__n__', '_'+str(n))
-                target = checkpoint_path_latest_n.replace('__n__', '_'+str(n+1))
-                if os.path.exists(source):
-                    os.rename(source, target)
-
-            improved=False
-            if loss_avg_val < best_validation_loss:
-                best_validation_loss = loss_avg_val
-                improved = True
-
-            torch.save({'state_dict': model.state_dict(),
-                        'optimizer': optimizer.state_dict(),
-                        'epoch': epoch,
-                        'best_validation_loss': best_validation_loss,
-                        'timestamp': timestamp},
-                        checkpoint_path_latest_n.replace('__n__', '_0'))
-
-            # optional saving of best validation state
-            if improved is True:
-                if epoch > args.burnin_epochs:
-                    copyfile(src=checkpoint_path_latest_n.replace('__n__', '_0'), dst=checkpoint_path_best)
-                    log_obj.write('Best validation loss until now - updated best model')
-            elif not improved:
-                log_obj.write('Validation loss did not improve')
+            # for n in range(0, checkpoint_latest_n-1)[::-1]:
+            #     source = checkpoint_path_latest_n.replace('__n__', '_'+str(n))
+            #     target = checkpoint_path_latest_n.replace('__n__', '_'+str(n+1))
+            #     if os.path.exists(source):
+            #         os.rename(source, target)
+            #
+            # improved=False
+            # if loss_avg_val < best_validation_loss:
+            #     best_validation_loss = loss_avg_val
+            #     improved = True
+            #
+            # torch.save({'state_dict': model.state_dict(),
+            #             'optimizer': optimizer.state_dict(),
+            #             'epoch': epoch,
+            #             'best_validation_loss': best_validation_loss,
+            #             'timestamp': timestamp},
+            #             checkpoint_path_latest_n.replace('__n__', '_0'))
+            #
+            # # optional saving of best validation state
+            # if improved is True:
+            #     if epoch > args.burnin_epochs:
+            #         copyfile(src=checkpoint_path_latest_n.replace('__n__', '_0'), dst=checkpoint_path_best)
+            #         log_obj.write('Best validation loss until now - updated best model')
+            # elif not improved:
+            #     log_obj.write('Validation loss did not improve')
 
     ### THESE MODES DON'T WORK YET
     elif args.mode == 'validate':
@@ -400,6 +451,9 @@ if __name__ == '__main__':
     log_obj.write('\n# Options')
     for key, value in sorted(vars(args).items()):
         log_obj.write('\t'+str(key)+'\t'+str(value))
+
+    ### Set up data storage
+    os.makedirs('{:s}/data'.format(basepath), exist_ok=True)
 
     torch.backends.cudnn.benchmark = True
     use_gpu = torch.cuda.is_available()
