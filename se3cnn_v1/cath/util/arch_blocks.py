@@ -290,11 +290,11 @@ class VAE(nn.Module):
 
         self.in_repr = in_repr
         self.layers = []
-        self.layers.append(nn.Linear(in_repr, 256))
-        self.layers.append(nn.Linear(256, 20))
-        self.layers.append(nn.Linear(256, 20))
-        self.layers.append(nn.Linear(20, 256))
-        self.layers.append(nn.Linear(256, in_repr))
+        self.layers.append(nn.Linear(in_repr, 128))
+        self.layers.append(nn.Linear(128, 20))
+        self.layers.append(nn.Linear(128, 20))
+        self.layers.append(nn.Linear(20, 128))
+        self.layers.append(nn.Linear(128, in_repr))
 
         self.layers = nn.Sequential(*self.layers)
 
@@ -315,6 +315,11 @@ class VAE(nn.Module):
         mu, logvar = self.encode(x.view(-1, self.in_repr))
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
+
+    def get_latent_space(self, cnn_output):
+        mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
+        z = self.reparameterize(mu, logvar)
+        return z
 
 
 class NonlinearityBlock(nn.Module):

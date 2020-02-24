@@ -43,5 +43,6 @@ class network(ResNet):
             AvgSpacial(),
             nn.Dropout(p=args.p_drop_fully,
                        inplace=True) if args.p_drop_fully is not None else None,
-            nn.Linear(features[4][-1][-1][0], n_output)
+            #nn.Linear(features[4][-1][-1][0], n_output)
+            VAE(features[4][-1][-1][0])
         )

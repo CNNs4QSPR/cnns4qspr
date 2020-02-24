@@ -24,7 +24,9 @@ def cnn_hook(module, input_, output):
     cnn_out = output
 
 def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 512), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 256), reduction='mean')
+    #criterion = nn.MSELoss()
+    #BCE = criterion(recon_x, x)
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -33,7 +35,7 @@ def loss_function(recon_x, x, mu, logvar):
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     print(BCE, KLD)
 
-    return BCE + KLD
+    return abs(BCE) + abs(KLD)
 
 def train_loop(model, train_loader, optimizer, epoch):
     """Main training loop
@@ -46,14 +48,13 @@ def train_loop(model, train_loader, optimizer, epoch):
     training_losses = []
     training_outs = []
     training_accs = []
-    print(len(train_loader))
     for batch_idx, (data, target) in enumerate(train_loader):
         print(batch_idx)
         time_start = time.perf_counter()
 
         # target = torch.LongTensor(target)
-        # if use_gpu:
-        #     data, target = data.cuda(), target.cuda()
+        if use_gpu:
+            data = data.cuda()
         x = torch.autograd.Variable(data)
         # y = torch.autograd.Variable(target)
         # forward and backward propagation
@@ -69,22 +70,22 @@ def train_loop(model, train_loader, optimizer, epoch):
             optimizer.zero_grad()
 
         _, argmax = torch.max(recon_out, 1)
-        acc = (argmax.squeeze() == t).float().mean()
+ #       acc = (argmax.squeeze() == t).float().mean()
 
         training_losses.append(loss.data.cpu().numpy())
         training_outs.append(recon_out.data.cpu().numpy())
-        training_accs.append(acc.item())
+ #       training_accs.append(acc.item())
 
         log_obj.write("[{}:{}/{}] loss={:.4} time={:.2}".format(
             epoch, batch_idx, len(train_loader),
-            float(loss.item()), float(acc.item()),
+            float(loss.item()),
             time.perf_counter() - time_start))
 
     loss_avg = np.mean(training_losses)
-    acc_avg = np.mean(training_accs)
+#    acc_avg = np.mean(training_accs)
     training_outs = np.concatenate(training_outs)
-    training_losses = np.concatenate(training_losses)
-    return loss_avg, acc_avg, training_outs, training_losses
+    training_losses = np.array(training_losses)
+    return loss_avg, training_outs, training_losses
 
 
 def infer(model, loader):
@@ -94,24 +95,33 @@ def infer(model, loader):
     """
     model.eval()
     losses = []
-    outs = []
+    recon_outs = []
+    cnn_outs = []
     ys = []
     for data,target in loader:
-        # if use_gpu:
-        #     data, target = data.cuda(), target.cuda()
+        if use_gpu:
+            data = data.cuda()
         x = torch.autograd.Variable(data, volatile=True)
-        y = torch.autograd.Variable(target, volatile=True)
-        out = model(x)
-        outs.append(out.data.cpu().numpy())
-        ys.append(y.data.cpu().numpy())
-        losses.append(nn.functional.cross_entropy(out, y, reduce=False).data.cpu().numpy())
-    outs = np.concatenate(outs)
-    ys = np.concatenate(ys)
-    return outs, ys, np.concatenate(losses)
+        #y = torch.autograd.Variable(target, volatile=True)
+        recon_out, mu, logvar = model(x)
+        t = torch.autograd.Variable(cnn_out, volatile=True)
+        recon_outs.append(recon_out.data.cpu().numpy())
+        cnn_outs.append(cnn_out.data.cpu().numpy())
+        #ys.append(y.data.cpu().numpy())
+        BCE_val = F.binary_cross_entropy(recon_out, t.view(-1, 256), reduction='mean')
+        #criterion = nn.MSELoss()
+        #BCE_val = criterion(recon_out, t)
+        KLD_val = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        losses.append(BCE_val+KLD_val)
+        #losses.append(nn.functional.cross_entropy(out, y, reduce=False).data.cpu().numpy())
+    recon_outs = np.concatenate(recon_outs)
+    cnn_outs = np.concatenate(cnn_outs)
+    #ys = np.concatenate(ys)
+    return recon_outs, cnn_outs, np.array(losses)
 
 ### Arguments
 
-# python orion_test.py --model SE3ResNet34 --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
+# python orion_test.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling --restore-checkpoint-filename 2020-02-20_09:08:26_latest_0.ckpt
 
 parser = argparse.ArgumentParser()
 # required
@@ -247,7 +257,7 @@ else:
     timestamp = time.strftime("%Y-%m-%d_%H:%M:%S", time.gmtime())
     os.makedirs('{:s}/checkpoints'.format(basepath), exist_ok=True)
 
-checkpoint_latest_n = 1
+checkpoint_latest_n = 5
 checkpoint_path_latest_n = '{:s}/checkpoints/{:s}_latest__n__.ckpt'.format(basepath, timestamp)
 checkpoint_path_best   = '{:s}/checkpoints/{:s}_best.ckpt'.format(basepath, timestamp)
 checkpoint_path_best_window_avg   = '{:s}/checkpoints/{:s}_best_window_avg.ckpt'.format(basepath, timestamp)
@@ -262,13 +272,13 @@ log_obj.write('\n# Options')
 for key, value in sorted(vars(args).items()):
     log_obj.write('\t'+str(key)+'\t'+str(value))
 
-# torch.backends.cudnn.benchmark = True
-# use_gpu = torch.cuda.is_available()
+torch.backends.cudnn.benchmark = True
+use_gpu = torch.cuda.is_available()
 
 
 model = network_module.network(n_input=n_input, n_output=n_output, args=args)
-# if use_gpu:
-#     model.cuda()
+if use_gpu:
+    model.cuda()
 
 param_groups = get_param_groups.get_param_groups(model, args)
 optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
@@ -305,9 +315,9 @@ if checkpoint is not None:
     model.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     epoch_start_index = checkpoint['epoch']+1
-    best_validation_acc = checkpoint['best_validation_acc']
-    best_avg_validation_acc = checkpoint['best_avg_validation_acc']
-    latest_validation_accs = checkpoint['latest_validation_accs']
+    #best_validation_acc = checkpoint['best_validation_acc']
+    #best_avg_validation_acc = checkpoint['best_avg_validation_acc']
+    #latest_validation_accs = checkpoint['latest_validation_accs']
 
 tf_logger, tensorflow_available = tensorflow_logger.get_tf_logger(basepath=basepath, timestamp=timestamp)
 
@@ -431,26 +441,26 @@ if args.mode == 'train':
         optimizer, _ = lr_schedulers.lr_scheduler_exponential(optimizer, epoch, args.initial_lr, args.lr_decay_start,
                                                               args.lr_decay_base, verbose=True)
 
-        loss_avg, acc_avg, training_outs, training_losses = train_loop(model, train_loader, optimizer, epoch)
+        loss_avg, training_outs, training_losses = train_loop(model, train_loader, optimizer, epoch)
 
         if (epoch+1) % args.report_frequency != 0:
             continue
 
-        # validation_outs, ys, validation_losses = infer(model, validation_loader)
+ #       validation_recon_outs, validation_cnn_outs, validation_losses = infer(model, validation_loader)
         #
         # # compute the accuracy
         # validation_acc = np.sum(validation_outs.argmax(-1) == ys) / len(ys)
         #
-        # validation_loss_avg = np.mean(validation_losses)
+#        validation_loss_avg = np.mean(validation_losses)
 
-        log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
+        log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4}'.format(
             epoch, len(train_loader)-1, len(train_loader),
-            loss_avg, acc_avg))
-        # log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4} acc={:.3}'.format(
-        #     epoch, len(train_loader)-1, len(train_loader),
-        #     validation_loss_avg, validation_acc))
-        #
-        # log_obj.write('VALIDATION losses: ' + str(validation_losses))
+            loss_avg))
+#        log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4}'.format(
+#            epoch, len(train_loader)-1, len(train_loader),
+#            validation_loss_avg))
+#        
+#        log_obj.write('VALIDATION losses: ' + str(validation_losses))
         #
         # if args.report_on_test_set:
         #     test_outs, test_ys, test_losses = infer(model,
