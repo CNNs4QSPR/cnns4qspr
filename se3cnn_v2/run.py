@@ -66,8 +66,6 @@ def train_loop(model, train_loader, optimizer, epoch):
     latent_var_outs = []
     training_labels = []
     for batch_idx, (data, target) in enumerate(train_loader):
-        if batch_idx > 3:
-            break
         time_start = time.perf_counter()
 
         if use_gpu:
@@ -121,8 +119,6 @@ def infer(model, loader):
     latent_var_outs = []
     training_labels = []
     for batch_idx, (data,target) in enumerate(loader):
-        if batch_idx > 3:
-            break
         if use_gpu:
             data, target = data.cuda(), target.cuda()
         x = torch.autograd.Variable(data, volatile=True)
@@ -177,8 +173,8 @@ def train(checkpoint):
     if args.mode == 'train':
 
         print("Training...")
-        train_batch_size = int(len(train_loader) / args.batch_size)
-        val_batch_size = int(len(validation_loader) / args.batch_size)
+        train_batch_size = len(train_loader)
+        val_batch_size = len(validation_loader)
         loss_avg_store = np.zeros((args.training_epochs,))
         loss_avg_BCE_store = np.zeros((args.training_epochs,))
         loss_avg_KLD_store = np.zeros((args.training_epochs,))
@@ -189,10 +185,10 @@ def train(checkpoint):
         training_labels_store = np.zeros((args.training_epochs, train_batch_size))
         training_losses_val_store = np.zeros((args.training_epochs, val_batch_size))
         training_labels_val_store = np.zeros((args.training_epochs, val_batch_size))
-        latent_mean_outs_store = np.zeros((args.training_epochs, train_batch_size, 20))
-        latent_var_outs_store = np.zeros((args.training_epochs, train_batch_size, 20))
-        latent_mean_outs_val_store = np.zeros((args.training_epochs, train_batch_size, 20))
-        latent_var_outs_val_store = np.zeros((args.training_epochs, train_batch_size, 20))
+        latent_mean_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), 20))
+        latent_var_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), 20))
+        latent_mean_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), 20))
+        latent_var_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), 20))
 
         for epoch in range(epoch_start_index, args.training_epochs):
             epoch_id = epoch - epoch_start_index
@@ -214,14 +210,14 @@ def train(checkpoint):
             loss_avg_val_store[epoch_id] = loss_avg_val
             loss_avg_BCE_val_store[epoch_id] = loss_avg_BCE_val
             loss_avg_KLD_val_store[epoch_id] = loss_avg_KLD_val
-            training_losses_store[epoch_id,:4] = training_losses
-            training_labels_store[epoch_id,:4] = training_labels
-            training_losses_val_store[epoch_id,:4] = training_losses_val
-            training_labels_val_store[epoch_id,:4] = training_labels_val
-            latent_mean_outs_store[epoch_id,:4,:] = latent_mean_outs
-            latent_var_outs_store[epoch_id,:4,:] = latent_var_outs
-            latent_mean_outs_val_store[epoch_id,:4,:] = latent_mean_outs_val
-            latent_var_outs_val_store[epoch_id,:4,:] = latent_var_outs_val
+            training_losses_store[epoch_id,:] = training_losses
+            training_labels_store[epoch_id,:] = training_labels
+            training_losses_val_store[epoch_id,:] = training_losses_val
+            training_labels_val_store[epoch_id,:] = training_labels_val
+            latent_mean_outs_store[epoch_id,:,:] = latent_mean_outs
+            latent_var_outs_store[epoch_id,:,:] = latent_var_outs
+            latent_mean_outs_val_store[epoch_id,:,:] = latent_mean_outs_val
+            latent_var_outs_val_store[epoch_id,:,:] = latent_var_outs_val
 
             np.save('{:s}/data/loss_avg.npy'.format(basepath), loss_avg_store)
             np.save('{:s}/data/loss_avg_BCE.npy'.format(basepath), loss_avg_store)
