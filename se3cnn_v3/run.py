@@ -17,23 +17,13 @@ import argparse
 from util import *
 from util.format_data import CathData
 
-# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 2 --restore-checkpoint-filename trial_8_best.ckpt
+# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --restore-checkpoint-filename trial_8_best.ckpt --initial_lr 0.01
 
 cnn_out = None
-latent_space_mean = None
-latent_space_var = None
 
 def cnn_hook(module, input_, output):
     global cnn_out
     cnn_out = output
-
-def latent_mean_hook(module, input_, output):
-    global latent_space_mean
-    latent_space_mean = output
-
-def latent_var_hook(module, input_, output):
-    global latent_space_var
-    latent_space_var = output
 
 def loss_function(recon_x, x, mu, logvar, labels, predictor_out, mode='train'):
     # see Appendix B from VAE paper:
@@ -46,10 +36,10 @@ def loss_function(recon_x, x, mu, logvar, labels, predictor_out, mode='train'):
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     if mode == 'train':
-        print('recon_l_tr={} kld_l_tr={} predict_l_tr = {} total_l_tr={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)))
+        print('recon_l_tr={} kld_l_tr={} predict_l_tr = {} total_l_tr={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)+abs(PCE)))
         return abs(BCE) + abs(KLD) + abs(PCE)
     elif mode == 'validate':
-        print('recon_l_val={} kld_l_val={} predict_l_val = {} total_l_val={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)))
+        print('recon_l_val={} kld_l_val={} predict_l_val = {} total_l_val={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)+abs(PCE)))
         return abs(BCE) + abs(KLD) + abs(PCE), abs(BCE), abs(KLD), abs(PCE)
 
 def train_loop(model, train_loader, optimizer, epoch):
@@ -66,7 +56,6 @@ def train_loop(model, train_loader, optimizer, epoch):
     training_losses_PCE = []
     training_accs = []
     latent_mean_outs = []
-    latent_var_outs = []
     predictor_outs = []
     training_labels = []
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -80,6 +69,7 @@ def train_loop(model, train_loader, optimizer, epoch):
         # forward and backward propagation
         vae_out, mu, logvar, predictor_out = model(x)
         vae_in = torch.autograd.Variable(cnn_out)
+        latent_space_mean = model.blocks[6].get_latent_space(vae_in)
 
         loss = loss_function(vae_out, vae_in, mu, logvar, labels, predictor_out)
         loss.backward()
@@ -96,7 +86,6 @@ def train_loop(model, train_loader, optimizer, epoch):
         training_losses_PCE.append(PCE.data.cpu().numpy())
         training_accs.append(acc.data.cpu().numpy())
         latent_mean_outs.append(latent_space_mean.data.cpu().numpy())
-        latent_var_outs.append(latent_space_var.data.cpu().numpy())
         predictor_outs.append(predictor_out.data.cpu().numpy())
         training_labels.append(labels.data.cpu().numpy())
 
@@ -110,10 +99,9 @@ def train_loop(model, train_loader, optimizer, epoch):
     loss_avg_KLD = np.mean(training_losses_KLD)
     loss_avg_PCE = np.mean(training_losses_PCE)
     latent_mean_outs = np.concatenate(latent_mean_outs)
-    latent_var_outs = np.concatenate(latent_var_outs)
     predictor_outs = np.concatenate(predictor_outs)
     training_labels = np.concatenate(training_labels)
-    return loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, latent_var_outs, predictor_outs, training_labels
+    return loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, predictor_outs, training_labels
 
 
 def infer(model, loader):
@@ -128,7 +116,6 @@ def infer(model, loader):
     training_losses_PCE = []
     training_accs = []
     latent_mean_outs = []
-    latent_var_outs = []
     predictor_outs = []
     training_labels = []
     for batch_idx, (data,target) in enumerate(loader):
@@ -140,6 +127,7 @@ def infer(model, loader):
         # Forward propagation
         vae_out, mu, logvar, predictor_out = model(x)
         vae_in = torch.autograd.Variable(cnn_out, volatile=True)
+        latent_space_mean = model.blocks[6].get_latent_space(vae_in)
 
         loss, bce_loss, kld_loss, pce_loss = loss_function(vae_out, vae_in, mu, logvar, labels, predictor_out, mode='validate')
 
@@ -152,7 +140,6 @@ def infer(model, loader):
         training_losses_PCE.append(PCE.data.cpu().numpy())
         training_accs.append(acc.data.cpu().numpy())
         latent_mean_outs.append(latent_space_mean.data.cpu().numpy())
-        latent_var_outs.append(latent_space_var.data.cpu().numpy())
         predictor_outs.append(predictor_out.data.cpu().numpy())
         training_labels.append(labels.data.cpu().numpy())
 
@@ -162,17 +149,14 @@ def infer(model, loader):
     loss_avg_KLD = np.mean(training_losses_KLD)
     loss_avg_PCE = np.mean(training_losses_PCE)
     latent_mean_outs = np.concatenate(latent_mean_outs)
-    latent_var_outs = np.concatenate(latent_var_outs)
     predictor_outs = np.concatenate(predictor_outs)
     training_labels = np.concatenate(training_labels)
-    return loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, latent_var_outs, predictor_outs, training_labels
+    return loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, predictor_outs, training_labels
 
 def train(checkpoint):
 
     model = network_module.network(n_input=n_input, n_output=n_output, args=args)
     model.blocks[5].register_forward_hook(cnn_hook)
-    model.blocks[6].layers[1].register_forward_hook(latent_mean_hook)
-    model.blocks[6].layers[2].register_forward_hook(latent_var_hook)
     if use_gpu:
         model.cuda()
 
@@ -218,9 +202,7 @@ def train(checkpoint):
         training_labels_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size)))
         training_labels_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size)))
         latent_mean_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), 20))
-        latent_var_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), 20))
         latent_mean_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), 20))
-        latent_var_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), 20))
         predictor_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), n_output))
         predictor_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), n_output))
 
@@ -231,12 +213,12 @@ def train(checkpoint):
             optimizer, _ = lr_schedulers.lr_scheduler_exponential(optimizer, epoch, args.initial_lr, args.lr_decay_start,
                                                                   args.lr_decay_base, verbose=True)
 
-            loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, latent_var_outs, predictor_outs, training_labels = train_loop(model, train_loader, optimizer, epoch)
+            loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, predictor_outs, training_labels = train_loop(model, train_loader, optimizer, epoch)
 
             if (epoch+1) % args.report_frequency != 0:
                 continue
 
-            loss_avg_val, acc_avg_val, loss_avg_BCE_val, loss_avg_KLD_val, loss_avg_PCE_val, latent_mean_outs_val, latent_var_outs_val, predictor_outs_val, training_labels_val = infer(model, validation_loader)
+            loss_avg_val, acc_avg_val, loss_avg_BCE_val, loss_avg_KLD_val, loss_avg_PCE_val, latent_mean_outs_val, predictor_outs_val, training_labels_val = infer(model, validation_loader)
 
             loss_avg_store[epoch_id] = loss_avg
             acc_avg_store[epoch_id] = acc_avg
@@ -251,9 +233,7 @@ def train(checkpoint):
             training_labels_store[epoch_id,:] = training_labels
             training_labels_val_store[epoch_id,:] = training_labels_val
             latent_mean_outs_store[epoch_id,:,:] = latent_mean_outs
-            latent_var_outs_store[epoch_id,:,:] = latent_var_outs
             latent_mean_outs_val_store[epoch_id,:,:] = latent_mean_outs_val
-            latent_var_outs_val_store[epoch_id,:,:] = latent_var_outs_val
             predictor_outs_store[epoch_id,:,:] = predictor_outs
             predictor_outs_val_store[epoch_id,:,:] = predictor_outs_val
 
@@ -270,9 +250,7 @@ def train(checkpoint):
             np.save('{:s}/data/training_labels.npy'.format(basepath), training_labels_store)
             np.save('{:s}/data/training_labels_val.npy'.format(basepath), training_labels_val_store)
             np.save('{:s}/data/latent_mean_outs.npy'.format(basepath), latent_mean_outs_store)
-            np.save('{:s}/data/latent_var_outs.npy'.format(basepath), latent_var_outs_store)
             np.save('{:s}/data/latent_mean_outs_val.npy'.format(basepath), latent_mean_outs_val_store)
-            np.save('{:s}/data/latent_var_outs_val.npy'.format(basepath), latent_var_outs_val_store)
             np.save('{:s}/data/predictor_outs.npy'.format(basepath), predictor_outs_store)
             np.save('{:s}/data/predictor_outs_val.npy'.format(basepath), predictor_outs_val_store)
 
