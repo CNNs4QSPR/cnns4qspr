@@ -285,23 +285,23 @@ class ResNet(nn.Module):
         return self.blocks(x)
 
 class VAE(nn.Module):
-    def __init__(self, in_repr, out_repr):
+    def __init__(self, in_repr, latent_size, out_repr):
         super().__init__()
 
         self.in_repr = in_repr
         self.layers = []
         self.layers.append(nn.Linear(in_repr, 128))
-        self.layers.append(nn.Linear(128, 20))
-        self.layers.append(nn.Linear(128, 20))
-        self.layers.append(nn.Linear(20, 128))
+        self.layers.append(nn.Linear(128, latent_size))
+        self.layers.append(nn.Linear(128, latent_size))
+        self.layers.append(nn.Linear(latent_size, 128))
         self.layers.append(nn.Linear(128, in_repr))
         self.layers = nn.Sequential(*self.layers)
 
-        self.predictor = []
-        self.predictor.append(nn.Linear(20, 128))
-        self.predictor.append(nn.Linear(128, 128))
-        self.predictor.append(nn.Linear(128, out_repr))
-        self.predictor = nn.Sequential(*self.predictor)
+        self.predict = []
+        self.predict.append(nn.Linear(latent_size, 128))
+        self.predict.append(nn.Linear(128, 128))
+        self.predict.append(nn.Linear(128, out_repr))
+        self.predict = nn.Sequential(*self.predict)
 
     def encode(self, x):
         h1 = F.relu(self.layers[0](x))
@@ -319,10 +319,8 @@ class VAE(nn.Module):
     def forward(self, x):
         mu, logvar = self.encode(x.view(-1, self.in_repr))
         z = self.reparameterize(mu, logvar)
-        out = F.relu(self.predictor[0](z))
-        out = F.relu(self.predictor[1](out))
-        out = self.predictor[2](out)
-        return self.decode(z), mu, logvar, out
+        predictions = self.predict(mu)
+        return self.decode(z), mu, logvar, predictions
 
     def get_latent_space(self, cnn_output):
         mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
