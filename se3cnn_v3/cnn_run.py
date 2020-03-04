@@ -17,7 +17,7 @@ import argparse
 from util import *
 from util.format_data import CathData
 
-# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --restore-checkpoint-filename trial_8_best.ckpt --initial_lr 0.01
+# python cnn_run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --latent-size 3
 
 cnn_out = None
 
@@ -25,24 +25,16 @@ def cnn_hook(module, input_, output):
     global cnn_out
     cnn_out = output
 
-def loss_function(recon_x, x, mu, logvar, labels, predictor_out, mode='train'):
-    # see Appendix B from VAE paper:
-    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-    # https://arxiv.org/abs/1312.6114
-    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    global BCE, KLD, PCE
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 256), reduction='mean')
-    PCE = F.cross_entropy(predictor_out, labels, reduction='mean')
+def vae_loss(vae_in, vae_out, mu, logvar):
+    BCE = F.binary_cross_entropy(vae_out, vae_in.view(-1, 256), reduction='mean')
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return abs(BCE) + abs(KLD)
 
-    if mode == 'train':
-        print('recon_l_tr={} kld_l_tr={} predict_l_tr = {} total_l_tr={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)+abs(PCE)))
-        return abs(BCE) + abs(KLD) + abs(PCE)
-    elif mode == 'validate':
-        print('recon_l_val={} kld_l_val={} predict_l_val = {} total_l_val={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)+abs(PCE)))
-        return abs(BCE) + abs(KLD) + abs(PCE), abs(BCE), abs(KLD), abs(PCE)
+def predictor_loss(labels, predictions):
+    PCE = F.cross_entropy(predictions, labels, reduction='mean')
+    return PCE
 
-def train_loop(model, train_loader, optimizer, epoch):
+def train_loop(model, loader, optimizer, epoch):
     """Main training loop
     :param model: Model to be trained
     :param train_loader: DataLoader object for training set
@@ -50,15 +42,13 @@ def train_loop(model, train_loader, optimizer, epoch):
     :param epoch: Current epoch index
     """
     model.train()
-    training_losses = []
-    training_losses_BCE = []
-    training_losses_KLD = []
-    training_losses_PCE = []
+    total_losses = []
+    vae_losses = []
+    pred_losses = []
     training_accs = []
-    latent_mean_outs = []
-    predictor_outs = []
+    latent_space = []
     training_labels = []
-    for batch_idx, (data, target) in enumerate(train_loader):
+    for batch_idx, (data, target) in enumerate(loader):
         time_start = time.perf_counter()
 
         if use_gpu:
@@ -67,57 +57,50 @@ def train_loop(model, train_loader, optimizer, epoch):
         labels = torch.autograd.Variable(target)
 
         # forward and backward propagation
-        vae_out, mu, logvar, predictor_out = model(x)
+        vae_out, mu, logvar, predictions = model(x)
         vae_in = torch.autograd.Variable(cnn_out)
-        latent_space_mean = model.blocks[6].get_latent_space(vae_in)
 
-        loss = loss_function(vae_out, vae_in, mu, logvar, labels, predictor_out)
+        loss_vae = vae_loss(vae_in, vae_out, mu, logvar)
+        loss_pred = predictor_loss(labels, predictions)
+        loss = loss_vae + loss_pred
         loss.backward()
-        if batch_idx % args.batchsize_multiplier == args.batchsize_multiplier-1:
-            optimizer.step()
-            optimizer.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
 
-        _, argmax = torch.max(predictor_out, 1)
+        _, argmax = torch.max(predictions, 1)
         acc = (argmax.squeeze() == labels).float().mean()
 
-        training_losses.append(loss.data.cpu().numpy())
-        training_losses_BCE.append(BCE.data.cpu().numpy())
-        training_losses_KLD.append(KLD.data.cpu().numpy())
-        training_losses_PCE.append(PCE.data.cpu().numpy())
+        total_losses.append(loss.item())
+        vae_losses.append(loss_vae.item())
+        pred_losses.append(loss_pred.item())
         training_accs.append(acc.data.cpu().numpy())
-        latent_mean_outs.append(latent_space_mean.data.cpu().numpy())
-        predictor_outs.append(predictor_out.data.cpu().numpy())
+        latent_space.append(mu.data.cpu().numpy())
         training_labels.append(labels.data.cpu().numpy())
-
         log_obj.write("[{}:{}/{}] loss={:.4} time={:.2}".format(
             epoch, batch_idx, len(train_loader),
             float(loss.item()), time.perf_counter() - time_start))
 
-    loss_avg = np.mean(training_losses)
-    acc_avg = np.mean(training_accs)
-    loss_avg_BCE = np.mean(training_losses_BCE)
-    loss_avg_KLD = np.mean(training_losses_KLD)
-    loss_avg_PCE = np.mean(training_losses_PCE)
-    latent_mean_outs = np.concatenate(latent_mean_outs)
-    predictor_outs = np.concatenate(predictor_outs)
+    avg_loss = np.mean(total_losses)
+    avg_vae_loss = np.mean(vae_losses)
+    avg_pred_loss = np.mean(pred_losses)
+    avg_acc = np.mean(training_accs)
+    latent_space = np.concatenate(latent_space)
     training_labels = np.concatenate(training_labels)
-    return loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, predictor_outs, training_labels
+    return avg_loss, avg_vae_loss, avg_pred_loss, avg_acc, latent_space, training_labels
 
-
-def infer(model, loader):
+def predict(model, loader):
     """Make prediction for all entries in loader
     :param model: Model used for prediction
     :param loader: DataLoader object
     """
     model.eval()
-    training_losses = []
-    training_losses_BCE = []
-    training_losses_KLD = []
-    training_losses_PCE = []
-    training_accs = []
-    latent_mean_outs = []
-    predictor_outs = []
-    training_labels = []
+    val_accs = []
+    latent_space = []
+    val_labels = []
+
+    total_losses = []
+    vae_losses = []
+    pred_losses = []
     for batch_idx, (data,target) in enumerate(loader):
         if use_gpu:
             data, target = data.cuda(), target.cuda()
@@ -125,37 +108,34 @@ def infer(model, loader):
         labels = torch.autograd.Variable(target, volatile=True)
 
         # Forward propagation
-        vae_out, mu, logvar, predictor_out = model(x)
+        vae_out, mu, logvar, predictions = model(x)
         vae_in = torch.autograd.Variable(cnn_out, volatile=True)
-        latent_space_mean = model.blocks[6].get_latent_space(vae_in)
 
-        loss, bce_loss, kld_loss, pce_loss = loss_function(vae_out, vae_in, mu, logvar, labels, predictor_out, mode='validate')
+        loss_vae = vae_loss(vae_in, vae_out, mu, logvar)
+        loss_pred = predictor_loss(labels, predictions)
+        loss = loss_vae + loss_pred
 
-        _, argmax = torch.max(predictor_out, 1)
+        _, argmax = torch.max(predictions, 1)
         acc = (argmax.squeeze() == labels).float().mean()
 
-        training_losses.append(loss.data.cpu().numpy())
-        training_losses_BCE.append(BCE.data.cpu().numpy())
-        training_losses_KLD.append(KLD.data.cpu().numpy())
-        training_losses_PCE.append(PCE.data.cpu().numpy())
-        training_accs.append(acc.data.cpu().numpy())
-        latent_mean_outs.append(latent_space_mean.data.cpu().numpy())
-        predictor_outs.append(predictor_out.data.cpu().numpy())
-        training_labels.append(labels.data.cpu().numpy())
+        val_accs.append(acc.data.cpu().numpy())
+        latent_space.append(mu.data.cpu().numpy())
+        val_labels.append(labels.data.cpu().numpy())
+        total_losses.append(loss.item())
+        vae_losses.append(loss_vae.item())
+        pred_losses.append(loss_pred.item())
 
-    loss_avg = np.mean(training_losses)
-    acc_avg = np.mean(training_accs)
-    loss_avg_BCE = np.mean(training_losses_BCE)
-    loss_avg_KLD = np.mean(training_losses_KLD)
-    loss_avg_PCE = np.mean(training_losses_PCE)
-    latent_mean_outs = np.concatenate(latent_mean_outs)
-    predictor_outs = np.concatenate(predictor_outs)
-    training_labels = np.concatenate(training_labels)
-    return loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, predictor_outs, training_labels
+    avg_val_acc = np.mean(val_accs)
+    latent_space = np.concatenate(latent_space)
+    val_labels = np.concatenate(val_labels)
+    avg_loss = np.mean(total_losses)
+    avg_vae_loss = np.mean(vae_losses)
+    avg_pred_loss = np.mean(pred_losses)
+    return avg_val_acc, latent_space, val_labels, avg_loss, avg_vae_loss, avg_pred_loss
 
 def train(checkpoint):
 
-    model = network_module.network(n_input=n_input, n_output=n_output, args=args)
+    model = network_module.network(n_input=n_input, n_output=n_output, latent_size=latent_size, args=args)
     model.blocks[5].register_forward_hook(cnn_hook)
     if use_gpu:
         model.cuda()
@@ -167,6 +147,7 @@ def train(checkpoint):
     print("Network built...")
 
     epoch_start_index = 0
+    best_acc = 0
     if checkpoint is not None:
         try:
             log_obj.write("Restoring model from: " + checkpoint_path_restore)
@@ -186,25 +167,18 @@ def train(checkpoint):
 
     if args.mode == 'train':
 
-        print("Training...")
-        train_batch_size = len(train_loader)
-        val_batch_size = len(validation_loader)
-        loss_avg_store = np.zeros((args.training_epochs,))
-        acc_avg_store = np.zeros((args.training_epochs,))
-        loss_avg_BCE_store = np.zeros((args.training_epochs,))
-        loss_avg_KLD_store = np.zeros((args.training_epochs,))
-        loss_avg_PCE_store = np.zeros((args.training_epochs,))
-        loss_avg_val_store = np.zeros((args.training_epochs,))
-        acc_avg_val_store = np.zeros((args.training_epochs,))
-        loss_avg_BCE_val_store = np.zeros((args.training_epochs,))
-        loss_avg_KLD_val_store = np.zeros((args.training_epochs,))
-        loss_avg_PCE_val_store = np.zeros((args.training_epochs,))
-        training_labels_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size)))
-        training_labels_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size)))
-        latent_mean_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), 20))
-        latent_mean_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), 20))
-        predictor_outs_store = np.zeros((args.training_epochs, int(train_batch_size*args.batch_size), n_output))
-        predictor_outs_val_store = np.zeros((args.training_epochs, int(val_batch_size*args.batch_size), n_output))
+        accs = np.zeros((args.training_epochs,))
+        val_accs = np.zeros((args.training_epochs,))
+        avg_loss = np.zeros((args.training_epochs,))
+        avg_vae_loss = np.zeros((args.training_epochs,))
+        avg_pred_loss = np.zeros((args.training_epochs,))
+        avg_loss_val = np.zeros((args.training_epochs,))
+        avg_vae_loss_val = np.zeros((args.training_epochs,))
+        avg_pred_loss_val = np.zeros((args.training_epochs,))
+        train_latent_space = np.zeros((args.training_epochs, len(train_loader)*args.batch_size, latent_size))
+        train_labels = np.zeros((args.training_epochs, len(train_loader)*args.batch_size))
+        val_latent_space = np.zeros((args.training_epochs, len(val_loader)*args.batch_size, latent_size))
+        val_labels = np.zeros((args.training_epochs, len(val_loader)*args.batch_size))
 
         for epoch in range(epoch_start_index, args.training_epochs):
             epoch_id = epoch - epoch_start_index
@@ -213,46 +187,43 @@ def train(checkpoint):
             optimizer, _ = lr_schedulers.lr_scheduler_exponential(optimizer, epoch, args.initial_lr, args.lr_decay_start,
                                                                   args.lr_decay_base, verbose=True)
 
-            loss_avg, acc_avg, loss_avg_BCE, loss_avg_KLD, loss_avg_PCE, latent_mean_outs, predictor_outs, training_labels = train_loop(model, train_loader, optimizer, epoch)
+            avg_l, avg_vae_l, avg_pred_l, avg_acc, latent_space, training_labels = train_loop(model, train_loader, optimizer, epoch)
 
             if (epoch+1) % args.report_frequency != 0:
                 continue
 
-            loss_avg_val, acc_avg_val, loss_avg_BCE_val, loss_avg_KLD_val, loss_avg_PCE_val, latent_mean_outs_val, predictor_outs_val, training_labels_val = infer(model, validation_loader)
+            avg_acc_val, latent_space_val, val_lab, avg_l_val, avg_vae_l_val, avg_pred_l_val = predict(model, validation_loader)
+            avg_acc = np.float64(avg_acc)
+            avg_acc_val = np.float64(avg_acc_val)
+            print("Epoch {}:".format(epoch+1))
+            print("vae_loss={} pred_loss={} acc={} val_acc={}".format(round(avg_vae_l, 3), round(avg_pred_l, 3), round(avg_acc, 3), round(avg_acc_val, 3))+'\n')
 
-            loss_avg_store[epoch_id] = loss_avg
-            acc_avg_store[epoch_id] = acc_avg
-            loss_avg_BCE_store[epoch_id] = loss_avg_BCE
-            loss_avg_KLD_store[epoch_id] = loss_avg_KLD
-            loss_avg_PCE_store[epoch_id] = loss_avg_PCE
-            loss_avg_val_store[epoch_id] = loss_avg_val
-            acc_avg_val_store[epoch_id] = acc_avg_val
-            loss_avg_BCE_val_store[epoch_id] = loss_avg_BCE_val
-            loss_avg_KLD_val_store[epoch_id] = loss_avg_KLD_val
-            loss_avg_PCE_val_store[epoch_id] = loss_avg_PCE_val
-            training_labels_store[epoch_id,:] = training_labels
-            training_labels_val_store[epoch_id,:] = training_labels_val
-            latent_mean_outs_store[epoch_id,:,:] = latent_mean_outs
-            latent_mean_outs_val_store[epoch_id,:,:] = latent_mean_outs_val
-            predictor_outs_store[epoch_id,:,:] = predictor_outs
-            predictor_outs_val_store[epoch_id,:,:] = predictor_outs_val
 
-            np.save('{:s}/data/loss_avg.npy'.format(basepath), loss_avg_store)
-            np.save('{:s}/data/acc_avg.npy'.format(basepath), acc_avg_store)
-            np.save('{:s}/data/loss_avg_BCE.npy'.format(basepath), loss_avg_BCE_store)
-            np.save('{:s}/data/loss_avg_KLD.npy'.format(basepath), loss_avg_KLD_store)
-            np.save('{:s}/data/loss_avg_PCE.npy'.format(basepath), loss_avg_PCE_store)
-            np.save('{:s}/data/loss_avg_val.npy'.format(basepath), loss_avg_val_store)
-            np.save('{:s}/data/acc_avg_val.npy'.format(basepath), acc_avg_val_store)
-            np.save('{:s}/data/loss_avg_BCE_val.npy'.format(basepath), loss_avg_BCE_val_store)
-            np.save('{:s}/data/loss_avg_KLD_val.npy'.format(basepath), loss_avg_KLD_val_store)
-            np.save('{:s}/data/loss_avg_PCE_val.npy'.format(basepath), loss_avg_PCE_val_store)
-            np.save('{:s}/data/training_labels.npy'.format(basepath), training_labels_store)
-            np.save('{:s}/data/training_labels_val.npy'.format(basepath), training_labels_val_store)
-            np.save('{:s}/data/latent_mean_outs.npy'.format(basepath), latent_mean_outs_store)
-            np.save('{:s}/data/latent_mean_outs_val.npy'.format(basepath), latent_mean_outs_val_store)
-            np.save('{:s}/data/predictor_outs.npy'.format(basepath), predictor_outs_store)
-            np.save('{:s}/data/predictor_outs_val.npy'.format(basepath), predictor_outs_val_store)
+            accs[epoch] = avg_acc
+            val_accs[epoch] = avg_acc_val
+            avg_loss[epoch] = avg_l
+            avg_vae_loss[epoch] = avg_vae_l
+            avg_pred_loss[epoch] = avg_pred_l
+            avg_loss_val[epoch] = avg_l_val
+            avg_vae_loss_val[epoch] = avg_vae_l_val
+            avg_pred_loss_val[epoch] = avg_pred_l_val
+            train_latent_space[epoch,:,:] = latent_space
+            train_labels[epoch,:] = training_labels
+            val_latent_space[epoch,:,:] = latent_space_val
+            val_labels[epoch,:] = val_lab
+
+            np.save('{:s}/data/accs.npy'.format(basepath), accs)
+            np.save('{:s}/data/val_accs.npy'.format(basepath), val_accs)
+            np.save('{:s}/data/avg_loss.npy'.format(basepath), avg_loss)
+            np.save('{:s}/data/avg_vae_loss.npy'.format(basepath), avg_vae_loss)
+            np.save('{:s}/data/avg_pred_loss.npy'.format(basepath), avg_pred_loss)
+            np.save('{:s}/data/avg_loss_val.npy'.format(basepath), avg_loss_val)
+            np.save('{:s}/data/avg_vae_loss_val.npy'.format(basepath), avg_vae_loss_val)
+            np.save('{:s}/data/avg_pred_loss_val.npy'.format(basepath), avg_pred_loss_val)
+            np.save('{:s}/data/train_latent_space.npy'.format(basepath), train_latent_space)
+            np.save('{:s}/data/train_labels.npy'.format(basepath), train_labels)
+            np.save('{:s}/data/val_latent_space.npy'.format(basepath), val_latent_space)
+            np.save('{:s}/data/val_labels.npy'.format(basepath), val_labels)
 
             log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4}'.format(
                 epoch, len(train_loader)-1, len(train_loader),
@@ -284,7 +255,7 @@ def train(checkpoint):
                     os.rename(source, target)
 
             improved=False
-            if acc_avg_val > best_acc:
+            if avg_acc_val > best_acc:
                 best_acc = acc_avg_val
                 improved = True
 
@@ -353,6 +324,8 @@ if __name__ == '__main__':
                         help="Whether to randomize the orientation of the structural input during training (default: %(default)s)")
     parser.add_argument("--batch-size", default=18, type=int,
                         help="Size of mini batches to use per iteration, can be accumulated via argument batchsize_multiplier (default: %(default)s)")
+    parser.add_argument("--latent-size", default=20, type=int,
+                        help="Size of latent space")
     parser.add_argument("--batchsize-multiplier", default=1, type=int,
                         help="number of minibatch iterations accumulated before applying the update step, effectively multiplying batchsize (default: %(default)s)")
     parser.add_argument("--restore-checkpoint-filename", type=str, default=None,
@@ -432,6 +405,7 @@ if __name__ == '__main__':
                                                pin_memory=False, drop_last=True)
     n_input = train_set.datasets[0].n_atom_types
     n_output = len(train_set.datasets[0].label_set)
+    latent_size = args.latent_size
 
     validation_set = CathData(
              args.data_filename, split=7, download=False,

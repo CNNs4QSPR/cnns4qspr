@@ -10,6 +10,7 @@ class network(ResNet):
     def __init__(self,
                  n_input,
                  n_output,
+                 latent_size,
                  args):
 
         features = [[[(2,  2,  2,  2)]],          #  32 channels
@@ -43,5 +44,5 @@ class network(ResNet):
             AvgSpacial(),
             nn.Dropout(p=args.p_drop_fully,
                        inplace=True) if args.p_drop_fully is not None else None,
-            VAE(features[4][-1][-1][0], n_output)
+            VAE(features[4][-1][-1][0], latent_size, n_output)
         )

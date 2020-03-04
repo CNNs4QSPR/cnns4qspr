@@ -322,7 +322,7 @@ class VAE(nn.Module):
         predictions = self.predict(mu)
         return self.decode(z), mu, logvar, predictions
 
-    def get_latent_space(self, cnn_output):
+    def sample_latent_space(self, cnn_output):
         mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
         z = self.reparameterize(mu, logvar)
         return z
