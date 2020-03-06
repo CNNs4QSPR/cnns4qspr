@@ -17,7 +17,52 @@ import argparse
 from util import *
 from util.format_data import CathData
 
-# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
+import plotly.express as px
+
+# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
+
+def plot_field(data):
+    """
+    This function takes cube data and plots a heat map of the 50x50x50 field
+    corresponding to a protein.
+
+    Parameters:
+    ___________
+    data (pytorch tensor): The data cube that comes out of CathData in format_data.py
+    """
+    cube = data[0][0].numpy()
+    cubelist = []
+    x = np.arange(0,50)
+    y = np.arange(0,50)
+    z = np.arange(0,50)
+
+    for x_ in x:
+
+        for y_ in y:
+
+            for z_ in z:
+
+                cubelist.append([x_, y_, z_, cube[x_][y_][z_]])
+
+    cube_df = pd.DataFrame(cubelist, columns = ['x','y','z','intensity'])
+    cube_df = cube_df[cube_df['intensity'] > 0.0001]
+    fig = px.scatter_3d(cube_df, x='x', y='y', z='z',
+                        color='intensity', opacity=0.9,
+                        color_continuous_scale='thermal_r')
+
+    fig2 = px.scatter_3d(cube_df, x='x', y='y', z='z',
+                        color='intensity', opacity=0.7,
+                        color_continuous_scale='ice_r')
+
+    fig3 = px.scatter_3d(cube_df, x='x', y='y', z='z',
+                        color='intensity', opacity=0.7,
+                        color_continuous_scale='deep')
+
+    fig.show()
+    fig2.show()
+    fig3.show()
+
+
 
 cnn_out = None
 latent_space_mean = None
@@ -52,7 +97,10 @@ def loss_function(recon_x, x, mu, logvar, mode='train'):
         return abs(BCE) + abs(KLD), abs(BCE), abs(KLD)
 
 def train_loop(model, train_loader, optimizer, epoch):
-    """Main training loop
+    """
+    This function sends data through the model once, calculates backprop, etc.
+    It does not train for all of the epochs.
+
     :param model: Model to be trained
     :param train_loader: DataLoader object for training set
     :param optimizer: Optimizer object
@@ -70,6 +118,38 @@ def train_loop(model, train_loader, optimizer, epoch):
 
         if use_gpu:
             data, target = data.cuda(), target.cuda()
+
+        #print('This is what "data" looks like before going into the model \n', data)
+        # print('This is data[0][0][0] \n', data[0][0][0],'\n')
+
+        # for i in range(len(data)):
+        #
+        #     for j in range(len(data[i])):
+        #
+        #         for k in range(len(data[i][j])):
+        #
+        #             for l in range(len(data[i][j][k])):
+        #                 print('This is data ',i,j,k,l)
+        #                 print(data[i][j][k][l])
+
+        #print('Where is data nonzero',np.where(data.numpy()) != 0)
+        """
+        Long comment to understand "data":
+
+        For some reason, data is a tensor of order 5. This means you
+        can literally do
+
+            data[0][0][28][26][25]
+
+        and get a single scalar out. The final 3 indices of "data" are each
+        50-dimmensional, representing the 50x50x50 field.
+        """
+        #plot_field(data)
+        print(data[0][0].shape)
+
+
+        plot_field(data)
+
         x = torch.autograd.Variable(data)
         label = torch.autograd.Variable(target)
 
@@ -111,6 +191,7 @@ def infer(model, loader):
     :param model: Model used for prediction
     :param loader: DataLoader object
     """
+    print('WE ARE IN THE INFER METHOD')
     model.eval()
     training_losses = []
     training_losses_BCE = []
@@ -121,6 +202,8 @@ def infer(model, loader):
     for batch_idx, (data,target) in enumerate(loader):
         if use_gpu:
             data, target = data.cuda(), target.cuda()
+
+        #print('This is what "data" looks like right before going into the model \n', data)
         x = torch.autograd.Variable(data, volatile=True)
         label = torch.autograd.Variable(target, volatile=True)
 
@@ -240,6 +323,7 @@ def train(checkpoint):
             log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4}'.format(
                 epoch, len(validation_loader)-1, len(validation_loader),
                 loss_avg_val))
+
 
             ### TEST SET DOES NOT WORK YET
             # if args.report_on_test_set:
@@ -418,6 +502,14 @@ if __name__ == '__main__':
              randomize_orientation=args.randomize_orientation,
              discretization_bins=args.data_discretization_bins,
              discretization_bin_size=args.data_discretization_bin_size)
+
+    ### trying to vizualize what's coming out of the validation set tensor
+    # print('Length of the validation set is ',len(validation_set))
+    # print(validation_set[0],'\n')
+    # print('validation_set[1][0][0][0][0] is\n', validation_set[1][0][0][0][0])
+
+    ### trying t0 vizualize ^^^
+
     validation_loader = torch.utils.data.DataLoader(validation_set, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=False, drop_last=True)
 
     ### Checkpoint loading
