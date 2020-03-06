@@ -297,6 +297,42 @@ class VAE(nn.Module):
         self.layers.append(nn.Linear(128, in_repr))
         self.layers = nn.Sequential(*self.layers)
 
+    def encode(self, x):
+        h1 = F.relu(self.layers[0](x))
+        return self.layers[1](h1), self.layers[2](h1)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
+    def decode(self, z):
+        h3 = F.relu(self.layers[3](z))
+        return torch.sigmoid(self.layers[4](h3))
+
+    def forward(self, x):
+        mu, logvar = self.encode(x.view(-1, self.in_repr))
+        z = self.reparameterize(mu, logvar)
+        return self.decode(z), mu, logvar
+
+    def sample_latent_space(self, cnn_output):
+        mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
+        z = self.reparameterize(mu, logvar)
+        return z
+
+class VAE_Predictor(nn.Module):
+    def __init__(self, in_repr, latent_size, out_repr):
+        super().__init__()
+
+        self.in_repr = in_repr
+        self.layers = []
+        self.layers.append(nn.Linear(in_repr, 128))
+        self.layers.append(nn.Linear(128, latent_size))
+        self.layers.append(nn.Linear(128, latent_size))
+        self.layers.append(nn.Linear(latent_size, 128))
+        self.layers.append(nn.Linear(128, in_repr))
+        self.layers = nn.Sequential(*self.layers)
+
         self.predict = []
         self.predict.append(nn.Linear(latent_size, 128))
         self.predict.append(nn.Linear(128, 128))

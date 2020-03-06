@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from functools import partial
 
-from se3cnn_v3.util.arch_blocks import *
+from util.arch_blocks import *
 from se3cnn.image import kernel
 
 
@@ -44,5 +44,5 @@ class network(ResNet):
             AvgSpacial(),
             nn.Dropout(p=args.p_drop_fully,
                        inplace=True) if args.p_drop_fully is not None else None,
-            VAE(features[4][-1][-1][0], latent_size, n_output)
+            VAE_Predictor(features[4][-1][-1][0], latent_size, n_output)
         )
