@@ -140,8 +140,9 @@ def train(checkpoint):
     if use_gpu:
         model.cuda()
 
-    param_groups = get_param_groups.get_param_groups(model, args)
-    optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
+    # param_groups = get_param_groups.get_param_groups(model, args)
+    # optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
+    optimizer = optim.Adam(model.parameters(), lr=args.initial_lr)
     optimizer.zero_grad()
 
     print("Network built...")
@@ -177,8 +178,8 @@ def train(checkpoint):
         avg_pred_loss_val = np.zeros((args.training_epochs,))
         train_latent_space = np.zeros((args.training_epochs, len(train_loader)*args.batch_size, latent_size))
         train_labels = np.zeros((args.training_epochs, len(train_loader)*args.batch_size))
-        val_latent_space = np.zeros((args.training_epochs, len(val_loader)*args.batch_size, latent_size))
-        val_labels = np.zeros((args.training_epochs, len(val_loader)*args.batch_size))
+        val_latent_space = np.zeros((args.training_epochs, len(validation_loader)*args.batch_size, latent_size))
+        val_labels = np.zeros((args.training_epochs, len(validation_loader)*args.batch_size))
 
         for epoch in range(epoch_start_index, args.training_epochs):
             epoch_id = epoch - epoch_start_index
@@ -225,12 +226,12 @@ def train(checkpoint):
             np.save('{:s}/data/val_latent_space.npy'.format(basepath), val_latent_space)
             np.save('{:s}/data/val_labels.npy'.format(basepath), val_labels)
 
-            log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4}'.format(
-                epoch, len(train_loader)-1, len(train_loader),
-                loss_avg))
-            log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4}'.format(
-                epoch, len(validation_loader)-1, len(validation_loader),
-                loss_avg_val))
+            # log_obj.write('TRAINING SET [{}:{}/{}] loss={:.4}'.format(
+            #     epoch, len(train_loader)-1, len(train_loader),
+            #     loss_avg))
+            # log_obj.write('VALIDATION SET [{}:{}/{}] loss={:.4}'.format(
+            #     epoch, len(validation_loader)-1, len(validation_loader),
+            #     loss_avg_val))
 
             ### TEST SET DOES NOT WORK YET
             # if args.report_on_test_set:
@@ -256,7 +257,7 @@ def train(checkpoint):
 
             improved=False
             if avg_acc_val > best_acc:
-                best_acc = acc_avg_val
+                best_acc = avg_acc_val
                 improved = True
 
             torch.save({'state_dict': model.state_dict(),
