@@ -137,7 +137,7 @@ class SE3GatedResBlock(nn.Module):
         self.activation = None
         # Add shortcut if number of layers is larger than 1
         if not single_layer:
-            # Use identity is input and output reprs are identical
+            # Use identity if input and output reprs are identical
             if in_repr == out_reprs[-1] and stride == 1:
                 self.shortcut = lambda x: x
             else:
