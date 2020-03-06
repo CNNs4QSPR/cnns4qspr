@@ -21,14 +21,16 @@ import plotly.express as px
 
 # python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
 
-def plot_field(data):
+def plot_field(data, color='yellow'):
     """
-    This function takes cube data and plots a heat map of the 50x50x50 field
+    This function takes a field datacube and plots a heat map of the 50x50x50 field
     corresponding to a protein.
 
     Parameters:
     ___________
     data (pytorch tensor): The data cube that comes out of CathData in format_data.py
+    color (str): The color scheme to plot the field with.
+                 If it's not 'yellow', then it turns out blue.
     """
     cube = data[0][0].numpy()
     cubelist = []
@@ -45,20 +47,19 @@ def plot_field(data):
                 cubelist.append([x_, y_, z_, cube[x_][y_][z_]])
 
     cube_df = pd.DataFrame(cubelist, columns = ['x','y','z','intensity'])
+
+    # only show the voxels with some intensity
     cube_df = cube_df[cube_df['intensity'] > 0.0001]
-    fig = px.scatter_3d(cube_df, x='x', y='y', z='z',
-                        color='intensity', opacity=0.9,
-                        color_continuous_scale='thermal_r')
 
-    fig2 = px.scatter_3d(cube_df, x='x', y='y', z='z',
-                        color='intensity', opacity=0.7,
-                        color_continuous_scale='ice_r')
+    if color == 'yellow':
+        fig2 = px.scatter_3d(cube_df, x='x', y='y', z='z',
+                            color='intensity', opacity=0.7,
+                            color_continuous_scale='ice_r')
+    else:
+        fig3 = px.scatter_3d(cube_df, x='x', y='y', z='z',
+                            color='intensity', opacity=0.7,
+                            color_continuous_scale='deep')
 
-    fig3 = px.scatter_3d(cube_df, x='x', y='y', z='z',
-                        color='intensity', opacity=0.7,
-                        color_continuous_scale='deep')
-
-    fig.show()
     fig2.show()
     fig3.show()
 
