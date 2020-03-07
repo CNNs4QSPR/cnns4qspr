@@ -22,7 +22,12 @@ from util.format_data import CathData
 def execute(checkpoint):
     ### Load model
     model = network_module.network(n_input=n_input, n_output=n_output, args=args)
-    print(model.blocks[0].layers[0].layers[0].conv._modules['kernel']._parameters['weight'])
+    for block in model.blocks:
+        pass
+        #print(block)
+
+    # This line prints something about the kernel weights in the first outer block
+    #print(model.blocks[0].layers[0].layers[0].conv._modules['kernel']._parameters['weight'])
 
     # model.blocks[5].register_forward_hook(cnn_hook)
     # model.blocks[6].layers[1].register_forward_hook(latent_mean_hook)
@@ -132,10 +137,22 @@ if __name__ == '__main__':
     ### Loading Data
     print("Loading data...")
     validation_set = CathData(
-             args.data_filename, split=7, download=False,
+             args.data_filename, split=0, download=False,
              randomize_orientation=args.randomize_orientation,
              discretization_bins=args.data_discretization_bins,
              discretization_bin_size=args.data_discretization_bin_size)
+
+    # print('This is len of positions \n', len(validation_set.positions))
+    # print('This is positions[0][0] \n',validation_set.positions[0][0])
+    # print('This is validation_set.__getitem__(0) \n',validation_set.__getitem__(0))
+    #
+    # print('The atom types array is \n', validation_set.atom_types)
+    # print(vars(validation_set))
+
+    print('Length of the validation set is ',len(validation_set))
+    print(validation_set[0],'\n')
+    print('validation_set[0][0][0][0][0] is\n',validation_set[1][0][0][0][0])
+
     validation_loader = torch.utils.data.DataLoader(validation_set, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=False, drop_last=True)
     n_input = validation_set.n_atom_types
     #print(f'n_input is {n_input}')
