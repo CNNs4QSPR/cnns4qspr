@@ -23,6 +23,7 @@ class CathData(torch.utils.data.Dataset):
         :param use_density: Whether to populate grid with densities rather than a one-hot encoding
         :param randomize_orientation: Whether to resample the orientation of each input data point whenever it is requested (i.e. data augmentation)
         """
+
         dirname, dataset = os.path.split(dataset)
         self.root = os.path.expanduser(dirname if dirname != "" else ".")
         self.path = 'datasets/'
