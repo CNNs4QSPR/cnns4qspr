@@ -15,7 +15,7 @@ from functools import partial
 import argparse
 
 from util import *
-from util.arch_blocks import VAE
+from util.arch_blocks import VAE_Predictor
 from util.format_data import CathData
 
 def vae_loss(vae_in, vae_out, mu, logvar):
@@ -116,7 +116,7 @@ def predict(model, loader):
 
 def train(checkpoint):
 
-    vae = VAE(n_input, latent_size, n_output)
+    vae = VAE_Predictor(n_input, latent_size, n_output)
     vae = vae.double()
     if use_gpu:
         vae.cuda()
@@ -149,12 +149,12 @@ def train(checkpoint):
         val_latent_space[epoch,:,:] = val_z
         val_labels[epoch,:] = val_lab
 
-    np.save('{:s}/data/accs.npy'.format(basepath), accs)
-    np.save('{:s}/data/val_accs.npy'.format(basepath), val_accs)
-    np.save('{:s}/data/train_latent_space.npy'.format(basepath), train_latent_space)
-    np.save('{:s}/data/train_labels.npy'.format(basepath), train_labels)
-    np.save('{:s}/data/val_latent_space.npy'.format(basepath), val_latent_space)
-    np.save('{:s}/data/val_labels.npy'.format(basepath), val_labels)
+    # np.save('{:s}/data/accs.npy'.format(basepath), accs)
+    # np.save('{:s}/data/val_accs.npy'.format(basepath), val_accs)
+    # np.save('{:s}/data/train_latent_space.npy'.format(basepath), train_latent_space)
+    # np.save('{:s}/data/train_labels.npy'.format(basepath), train_labels)
+    # np.save('{:s}/data/val_latent_space.npy'.format(basepath), val_latent_space)
+    # np.save('{:s}/data/val_labels.npy'.format(basepath), val_labels)
 
 
 if __name__ == '__main__':
