@@ -5,7 +5,7 @@ import pandas as pd
 from biopandas.mol2 import PandasMol2
 from biopandas.pdb import PandasPdb
 from scipy.stats import special_ortho_group
-
+# dave was here
 # class CathData(torch.utils.data.Dataset):
 
 def load_pdb(file):
