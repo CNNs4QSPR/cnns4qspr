@@ -1,10 +1,4 @@
-import torch
-import os
-import numpy as np
-import pandas as pd
-from biopandas.mol2 import PandasMol2
-from biopandas.pdb import PandasPdb
-from scipy.stats import special_ortho_group
+
 
 # class CathData(torch.utils.data.Dataset):
 
@@ -49,29 +43,37 @@ def load_pdb(file):
     p=discretization_bin_size
     n=discretization_bins
 
+
+    atom_type_set=np.unique(atom_types)
+    a=len(atom_type_set)
     if torch.cuda.is_available():
-        fields=torch.cuda.FloatTensor(*(atom_types,)+(n,n,n)).fill_(0)
+        fields=torch.cuda.FloatTensor(*(a,)+(n,n,n)).fill_(0)
     else:
-        fields=torch.zeros(*(atom_types,)+(n,n,n))
+        fields=torch.zeros(*(a,)+(n,n,n))
 
     a = torch.linspace(start=-n / 2 * p + p / 2, end=n / 2 * p - p / 2, steps=n)
-    if torch.cuda.is_available():
-        a = a.cuda()
+#     if torch.cuda.is_available():
+#         a = a.cuda()
 
 
     xx = a.view(-1, 1, 1).repeat(1, len(a), len(a))
     yy = a.view(1, -1, 1).repeat(len(a), 1, len(a))
     zz = a.view(1, 1, -1).repeat(len(a), len(a), 1)
 
-    atom_type_set=np.unique(atom_types[atom_numbers])
+#     atom_type_set=np.unique(atom_types[atom_numbers])
 
-    for i,atom_type in enumerate(atom_type_set):
-
+     ##changing the atom_type_set for now using just a single input
+    for i, atom_type in enumerate(['CA']):
+        print(atom_types)
+        print(type(atom_types))
+        print(atom_types == 'CA')
+        print('This is the type of positions',type(positions))
+        positions = np.array(positions)
         pos = positions[atom_types == atom_type]
-
+#         pos = positions[0] #changing pos here
         pos = torch.FloatTensor(pos)
-        if torch.cuda.is_available():
-            pos=pos.cuda()
+#         if torch.cuda.is_available():
+#             pos=pos.cuda()
 
         xx_xx = xx.view(-1,1).repeat(1, len(pos))
         posx_posx = pos[:, 0].contiguous().view(1, -1).repeat(len(xx.view(-1)),1)
@@ -86,3 +88,5 @@ def load_pdb(file):
         density /= torch.sum(density, dim=0)
 
         fields[i] = torch.sum(density, dim=1).view(xx.shape)
+
+    return fields
