@@ -19,24 +19,27 @@ from util.format_data import CathData
 
 import plotly.express as px
 
-# python run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
+# python dave_viz.py --model SE3ResNet34Small --restore_checkpoint_filename=trial_8_best.ckpt --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
 
-def plot_field(data, color='yellow'):
+def plot_field(field, color_yellow=True, from_voxelizer=True):
     """
-    This function takes a field datacube and plots a heat map of the 50x50x50 field
-    corresponding to a protein.
+    This function takes a field datacube from voxelizer and plots a heat map of
+    the 50x50x50 field. The field describes an atomic "denisty" at each voxel.
 
     Parameters:
     ___________
-    data (pytorch tensor): The data cube that comes out of CathData in format_data.py
+    data (pytorch tensor): The data cube that comes out of the voxelizer
+
     color (str): The color scheme to plot the field with.
                  If it's not 'yellow', then it turns out blue.
     """
-    cube = data[0][0].numpy()
+    cube = field[0][0].numpy()
+    if from_voxelizer:
+        cube = field.numpy()
     cubelist = []
-    x = np.arange(0,50)
-    y = np.arange(0,50)
-    z = np.arange(0,50)
+    x = np.arange(0,len(cube[0]))
+    y = np.arange(0,len(cube[0]))
+    z = np.arange(0,len(cube[0]))
 
     for x_ in x:
 
@@ -51,17 +54,17 @@ def plot_field(data, color='yellow'):
     # only show the voxels with some intensity
     cube_df = cube_df[cube_df['intensity'] > 0.0001]
 
-    if color == 'yellow':
+    if color_yellow == True:
         fig2 = px.scatter_3d(cube_df, x='x', y='y', z='z',
                             color='intensity', opacity=0.7,
                             color_continuous_scale='ice_r')
+        fig2.show()
     else:
         fig3 = px.scatter_3d(cube_df, x='x', y='y', z='z',
                             color='intensity', opacity=0.7,
                             color_continuous_scale='deep')
+        fig2.show()
 
-    fig2.show()
-    fig3.show()
 
 
 
@@ -114,26 +117,13 @@ def train_loop(model, train_loader, optimizer, epoch):
     latent_mean_outs = []
     latent_var_outs = []
     training_labels = []
+
     for batch_idx, (data, target) in enumerate(train_loader):
         time_start = time.perf_counter()
 
         if use_gpu:
             data, target = data.cuda(), target.cuda()
 
-        #print('This is what "data" looks like before going into the model \n', data)
-        # print('This is data[0][0][0] \n', data[0][0][0],'\n')
-
-        # for i in range(len(data)):
-        #
-        #     for j in range(len(data[i])):
-        #
-        #         for k in range(len(data[i][j])):
-        #
-        #             for l in range(len(data[i][j][k])):
-        #                 print('This is data ',i,j,k,l)
-        #                 print(data[i][j][k][l])
-
-        #print('Where is data nonzero',np.where(data.numpy()) != 0)
         """
         Long comment to understand "data":
 
@@ -146,7 +136,7 @@ def train_loop(model, train_loader, optimizer, epoch):
         50-dimmensional, representing the 50x50x50 field.
         """
         #plot_field(data)
-        print(data[0][0].shape)
+        print(data)
 
 
         plot_field(data)
@@ -234,6 +224,7 @@ def infer(model, loader):
 def train(checkpoint):
 
     model = network_module.network(n_input=n_input, n_output=n_output, args=args)
+    print('This is n_input', n_input)
     model.blocks[5].register_forward_hook(cnn_hook)
     model.blocks[6].layers[1].register_forward_hook(latent_mean_hook)
     model.blocks[6].layers[2].register_forward_hook(latent_var_hook)
@@ -420,7 +411,7 @@ if __name__ == '__main__':
                         help="Size of mini batches to use per iteration, can be accumulated via argument batchsize_multiplier (default: %(default)s)")
     parser.add_argument("--batchsize-multiplier", default=1, type=int,
                         help="number of minibatch iterations accumulated before applying the update step, effectively multiplying batchsize (default: %(default)s)")
-    parser.add_argument("--restore-checkpoint-filename", type=str, default=None,
+    parser.add_argument("--restore-checkpoint-filename", type=str, default='trial_8_best.ckpt',
                         help="Read model from checkpoint given by filename (assumed to be in checkpoint folder)")
     parser.add_argument("--initial_lr", default=1e-1, type=float,
                         help="Initial learning rate (without decay)")
@@ -483,41 +474,17 @@ if __name__ == '__main__':
                         help="L2 regularization factor for classification layer biases")
 
     args, unparsed = parser.parse_known_args()
+    print('**** about to print args.restore_checkpoint_filename')
+    print(args.restore_checkpoint_filename)
 
 
-    ### Loading Data
-    print("Loading data...")
-    train_set = torch.utils.data.ConcatDataset([
-        CathData(args.data_filename, split=i, download=False,
-             randomize_orientation=args.randomize_orientation,
-             discretization_bins=args.data_discretization_bins,
-             discretization_bin_size=args.data_discretization_bin_size) for i in range(7)])
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,
-                                               shuffle=True, num_workers=0,
-                                               pin_memory=False, drop_last=True)
-    n_input = train_set.datasets[0].n_atom_types
-    n_output = len(train_set.datasets[0].label_set)
-
-    validation_set = CathData(
-             args.data_filename, split=7, download=False,
-             randomize_orientation=args.randomize_orientation,
-             discretization_bins=args.data_discretization_bins,
-             discretization_bin_size=args.data_discretization_bin_size)
-
-    ### trying to vizualize what's coming out of the validation set tensor
-    # print('Length of the validation set is ',len(validation_set))
-    # print(validation_set[0],'\n')
-    # print('validation_set[1][0][0][0][0] is\n', validation_set[1][0][0][0][0])
-
-    ### trying t0 vizualize ^^^
-
-    validation_loader = torch.utils.data.DataLoader(validation_set, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=False, drop_last=True)
 
     ### Checkpoint loading
     network_module = importlib.import_module('networks.{:s}.{:s}'.format(args.model, args.model))
     basepath = 'networks/{:s}'.format(args.model)
 
     if args.restore_checkpoint_filename is not None:
+        print('Trying to load a checkpoint Dave ')
         checkpoint_path_restore = '{:s}/checkpoints/{:s}'.format(basepath, args.restore_checkpoint_filename)
         checkpoint = torch.load(checkpoint_path_restore, map_location=torch.device('cpu'))
         timestamp = checkpoint['timestamp']
@@ -541,11 +508,30 @@ if __name__ == '__main__':
     for key, value in sorted(vars(args).items()):
         log_obj.write('\t'+str(key)+'\t'+str(value))
 
-    ### Set up data storage
+    ## Set up data storage
     os.makedirs('{:s}/data'.format(basepath), exist_ok=True)
 
     torch.backends.cudnn.benchmark = True
     use_gpu = torch.cuda.is_available()
 
-    ### Train model
-    train(checkpoint)
+    # train(checkpoint)
+    #####################################
+    ##### Trying to send shit through the network one at a time
+    ### Loading Data
+    print("Loading data...")
+    validation_set = CathData(
+             args.data_filename, split=0, download=False,
+             randomize_orientation=args.randomize_orientation,
+             discretization_bins=args.data_discretization_bins,
+             discretization_bin_size=args.data_discretization_bin_size)
+    validation_loader = torch.utils.data.DataLoader(validation_set, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=False, drop_last=True)
+    n_input = validation_set.n_atom_types
+
+    n_output = len(validation_set.label_set)
+    model = network_module.network(n_input=n_input, n_output=n_output, args=args)
+    model.blocks[5].register_forward_hook(cnn_hook)
+    model.blocks[6].layers[1].register_forward_hook(latent_mean_hook)
+    model.blocks[6].layers[2].register_forward_hook(latent_var_hook)
+
+    model.load_state_dict(checkpoint['state_dict'])
+    infer(model, validation_loader)
