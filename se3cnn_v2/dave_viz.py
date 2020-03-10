@@ -21,7 +21,7 @@ import plotly.express as px
 
 # python dave_viz.py --model SE3ResNet34Small --restore_checkpoint_filename=trial_8_best.ckpt --data-filename cath_3class_ca.npz --training-epochs 1 --batch-size 1 --batchsize-multiplier 1 --kernel-size 3 --initial_lr=0.0001 --lr_decay_base=.996 --p-drop-conv 0.1 --downsample-by-pooling
 
-def plot_field(field, color_yellow=True, from_voxelizer=True):
+def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.0001, alpha=0.7):
     """
     This function takes a field datacube from voxelizer and plots a heat map of
     the 50x50x50 field. The field describes an atomic "denisty" at each voxel.
@@ -31,42 +31,38 @@ def plot_field(field, color_yellow=True, from_voxelizer=True):
     data (pytorch tensor): The data cube that comes out of the voxelizer
 
     color (str): The color scheme to plot the field with.
-                 If it's not 'yellow', then it turns out blue.
+                 Any of the Plotly continuous color schemes.
+                 deep and ice_r are recommended.
     """
+    # if the cube is coming for the CathData class, it's indexed differently
     cube = field[0][0].numpy()
     if from_voxelizer:
         cube = field.numpy()
+
     cubelist = []
-    x = np.arange(0,len(cube[0]))
-    y = np.arange(0,len(cube[0]))
-    z = np.arange(0,len(cube[0]))
+    x = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
+    y = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
+    z = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
 
-    for x_ in x:
+    # make a dataframe of x,y,z,intensity for each point in the cube
+    # to do this have to loop through the cube
+    for i, x_ in enumerate(x):
 
-        for y_ in y:
+        for j, y_ in enumerate(y):
 
-            for z_ in z:
+            for k, z_ in enumerate(z):
 
-                cubelist.append([x_, y_, z_, cube[x_][y_][z_]])
+                cubelist.append([x_, y_, z_, cube[i][j][k]])
 
     cube_df = pd.DataFrame(cubelist, columns = ['x','y','z','intensity'])
 
     # only show the voxels with some intensity
-    cube_df = cube_df[cube_df['intensity'] > 0.0001]
+    cube_df = cube_df[cube_df['intensity'] > threshold]
 
-    if color_yellow == True:
-        fig2 = px.scatter_3d(cube_df, x='x', y='y', z='z',
-                            color='intensity', opacity=0.7,
-                            color_continuous_scale='ice_r')
-        fig2.show()
-    else:
-        fig3 = px.scatter_3d(cube_df, x='x', y='y', z='z',
-                            color='intensity', opacity=0.7,
-                            color_continuous_scale='deep')
-        fig2.show()
-
-
-
+    fig2 = px.scatter_3d(cube_df, x='x', y='y', z='z',
+                        color='intensity', opacity=alpha,
+                        color_continuous_scale=color)
+    fig2.show()
 
 cnn_out = None
 latent_space_mean = None
