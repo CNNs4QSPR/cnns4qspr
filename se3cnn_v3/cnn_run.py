@@ -6,6 +6,7 @@ from torch.nn import functional as F
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import os
 import time
 import random
@@ -17,7 +18,28 @@ import argparse
 from util import *
 from util.format_data import CathData
 
-# python cnn_run.py --model SE3ResNet34Small --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 8 --latent-size 3
+# python cnn_run.py --model VAE --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 1 --latent-size 3 --lamb_conv_weight_L1 1e-7 --lamb_conv_weight_L2 1e-7 --lamb_bn_weight_L1 1e-7 --lamb_bn_weight_L2 1e-7
+
+def plot_grad_flow(named_parameters):
+    ave_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if(p.requires_grad) and ("bias" not in n):
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    layers = np.array(layers)
+    ave_grads = np.array(ave_grads)
+    # np.save('avg_grads.npy', ave_grads)
+    # np.save('layers.npy', layers)
+    plt.plot(ave_grads, alpha=0.3, color="b")
+    plt.hlines(0, 0, len(ave_grads)+1, linewidth=1, color="k" )
+    plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(xmin=0, xmax=len(ave_grads))
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title("Gradient flow")
+    plt.grid(True)
+    return plt
 
 cnn_out = None
 
@@ -140,9 +162,9 @@ def train(checkpoint):
     if use_gpu:
         model.cuda()
 
-    # param_groups = get_param_groups.get_param_groups(model, args)
-    # optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
-    optimizer = optim.Adam(model.parameters(), lr=args.initial_lr)
+    param_groups = get_param_groups.get_param_groups(model, args)
+    optimizer = optimizers_L1L2.Adam(param_groups, lr=args.initial_lr)
+    # optimizer = optim.Adam(model.parameters(), lr=args.initial_lr)
     optimizer.zero_grad()
 
     print("Network built...")
