@@ -1,8 +1,10 @@
-import os
-from se3cnn_v3.util import util
+from cnns4qspr.featurizer import load_cnn
+from cnns4qspr.loader import *
 
-model = util.load_model('SE3ResNet34Small', 20, 'trial_8_best.ckpt')
+test_pdb_fn = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+pdb_dict = load_pdb(test_pdb_fn)
+fields = voxelize(pdb_dict)['CA']
+cnn = load_cnn('cnn_no_vae.ckpt')
 
-# density_tensor = voxelizer(pdb_filename)
-# decoded_vector, mean_vector, variance_vector = model(density_tensor)
-# density_tensor -> pytorch.tensor (1x50x50x50)
+feature_vector = cnn(fields)
+print(feature_vector.shape)
