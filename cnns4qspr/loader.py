@@ -99,7 +99,7 @@ def shift_coords(protein_dict):
     return protein_dict
 
 
-def voxelize(protein_dict, channels=['C','CA','NH2','OH','SD','SG'], bin_size=2.0, num_bins=50):
+def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
     This function takes a protein dict (from load_pdb function) and outputs a large tensor containing many
     atomic "fields" for the protein. The fields describe the atomic "density" (an exponentially decaying function
