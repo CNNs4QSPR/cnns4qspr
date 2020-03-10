@@ -7,12 +7,12 @@ used for plotting, or to send into the convolutional neural network.
 import torch
 import numpy as np
 # from biopandas.mol2 import PandasMol2
-import sys
-sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/se3cnn_v3')
-import dave_viz
+# import sys
+# sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/se3cnn_v3')
+# import dave_viz
 
 # this is to import a protein file
-sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs')
+# sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs')
 
 from biopandas.pdb import PandasPdb
 
@@ -194,6 +194,9 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         # set all nans to 0
         sum_densities[sum_densities != sum_densities] = 0
 
+        # add an empty dimmension to make it 1x50x50x50
+        sum_densities = sum_densities.unsqueeze(0)
+
         #fields[atom_type_index] = sum_densities
         fields[atom_type] = sum_densities
 
@@ -226,4 +229,4 @@ def main():
     fields = voxelize(protein_dict)
     dave_viz.plot_field(fields['CA'])
 
-main()
+# main()
