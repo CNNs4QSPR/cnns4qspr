@@ -5,14 +5,9 @@ used for plotting, or to send into the convolutional neural network.
 """
 
 import torch
-import os
 import numpy as np
-import pandas as pd
 from biopandas.mol2 import PandasMol2
 from biopandas.pdb import PandasPdb
-from scipy.stats import special_ortho_group
-
-import torch
 
 def load_pdb(path):
     """
@@ -61,11 +56,13 @@ def load_pdb(path):
     # residue names
     residue_names = pdf['residue_name'].values
 
-    protein_dict = {'x_coords':x_coords, 'y_coords':y_coords, 'z_coords':z_coords, 'positions':positions,
-                    'atom_types':atom_types, 'num_atoms':num_atoms, 'atom_type_set':atom_type_set,
+    protein_dict = {'x_coords':x_coords, 'y_coords':y_coords, 'z_coords':z_coords,
+                    'positions':positions, 'atom_types':atom_types,
+                    'num_atoms':num_atoms, 'atom_type_set':atom_type_set,
                     'num_atom_types':num_atom_types, 'residue_names':residue_names}
 
-    # add a value to the dictionary, which is all of the atomic coordinates just shifted to the origin
+    # add a value to the dictionary, which is all of the atomic coordinates just
+    # shifted to the origin
     protein_dict = shift_coords(protein_dict)
 
     return protein_dict
@@ -85,9 +82,9 @@ def shift_coords(protein_dict):
     protein_dict (dict): Just the original protein dict but with an added value,
     """
     # find the extreme x, y, and z values that exist in the protein atomic coordinates
-    x_extremes=np.array([protein_dict['x_coords'].min(),protein_dict['x_coords'].max()])
-    y_extremes=np.array([protein_dict['y_coords'].min(),protein_dict['y_coords'].max()])
-    z_extremes=np.array([protein_dict['z_coords'].min(),protein_dict['z_coords'].max()])
+    x_extremes = np.array([protein_dict['x_coords'].min(), protein_dict['x_coords'].max()])
+    y_extremes = np.array([protein_dict['y_coords'].min(), protein_dict['y_coords'].max()])
+    z_extremes = np.array([protein_dict['z_coords'].min(), protein_dict['z_coords'].max()])
 
     # calculate the midpoints of the extremes
     midpoints = [np.sum(x_extremes)/2, np.sum(y_extremes)/2, np.sum(z_extremes)/2]
@@ -101,27 +98,29 @@ def shift_coords(protein_dict):
 
 def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
-    This function takes a protein dict (from load_pdb function) and outputs a large tensor containing many
-    atomic "fields" for the protein. The fields describe the atomic "density" (an exponentially decaying function
+    This function takes a protein dict (from load_pdb function) and outputs a
+    large tensor containing many atomic "fields" for the protein. The fields
+    describe the atomic "density" (an exponentially decaying function
     of number of atoms in a voxel) of any particular atom type.
 
     Parameters:
     ___________
     protein_dict (dict, requred): dictionary from the load_pdb function
     channels (list-like, optional): the different atomic densities we want fields for
-        theoretically these different fields provide different chemical information full list of available
-        channels is in protein_dict['atom_type_set']
+        theoretically these different fields provide different chemical information
+        full list of available channels is in protein_dict['atom_type_set']
 
     bin_size (float, optional): the side-length (angstrom) of a given voxel in the box
         that atomic densities are placed in
 
-    num_bins (int, optional): how big is the cubic field tensor side length (i.e., num_bins is box side length)
+    num_bins (int, optional): how big is the cubic field tensor side length
+        (i.e., num_bins is box side length)
 
 
     Returns:
     ________
-    fields (numpy array or pytorch tensor): A list of atomic density tensors (50x50x50), one for each channel
-        in channels
+    fields (numpy array or pytorch tensor): A list of atomic density tensors
+        (50x50x50), one for each channel in channels
     """
 
     # this is weird tuple construction going into this zeros call
@@ -137,12 +136,14 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
                              steps=num_bins)
 
     # This makes three 3D meshgrids in for the x, y, and z positions
-    # These cubes will be flattened and then used to normalize atomic positions in the middle of a datacube
+    # These cubes will be flattened and then used to normalize atomic positions
+    # in the middle of a datacube
     xx = grid_1d.view(-1, 1, 1).repeat(1, len(grid_1d), len(grid_1d))
     yy = grid_1d.view(1, -1, 1).repeat(len(grid_1d), 1, len(grid_1d))
     zz = grid_1d.view(1, 1, -1).repeat(len(grid_1d), len(grid_1d), 1)
 
-    # this used to be enumerate(protein_dict['atom_type_set']), but we only want a few atomic channels
+    # this used to be enumerate(protein_dict['atom_type_set']), but we only want
+    # a few atomic channels
     for atom_type_index, atom_type in enumerate(channels):
 
         # Extract positions of only the current atom type (use the origin-centered coordinates)
@@ -169,8 +170,8 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         # and calculates density of atoms in each voxel
         sigma = 0.5*bin_size
         density = torch.exp(-((xx_xx - posx_posx)**2
-                            + (yy_yy - posy_posy)**2
-                            + (zz_zz - posz_posz)**2) / (2 * (sigma)**2))
+                              + (yy_yy - posy_posy)**2
+                              + (zz_zz - posz_posz)**2) / (2 * (sigma)**2))
 
         # Normalize so each atom density sums to one
         density /= torch.sum(density, dim=0)
@@ -186,3 +187,20 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 
 
     return fields
+
+class loader():
+    """
+    docstring
+    """
+
+    def __init__(self, path_to_pdb_file):
+        """
+        docstring
+        """
+
+    def __getitem__(self, channel='CA'):
+        """
+        docstring
+        """
+        fields = voxelize(self.protein_dict)
+        return fields[channel]
