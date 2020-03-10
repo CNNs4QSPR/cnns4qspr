@@ -6,8 +6,17 @@ used for plotting, or to send into the convolutional neural network.
 
 import torch
 import numpy as np
-from biopandas.mol2 import PandasMol2
+# from biopandas.mol2 import PandasMol2
+import sys
+sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/se3cnn_v3')
+import dave_viz
+
+# this is to import a protein file
+sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs')
+
 from biopandas.pdb import PandasPdb
+
+# from
 
 def load_pdb(path):
     """
@@ -95,6 +104,11 @@ def shift_coords(protein_dict):
 
     return protein_dict
 
+def  grid_positions(grid_array):
+    xx = grid_array.view(-1, 1, 1).repeat(1, len(grid_array), len(grid_array))
+    yy = grid_array.view(1, -1, 1).repeat(len(grid_array), 1, len(grid_array))
+    zz = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
+    return (xx, yy, zz)
 
 def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
@@ -138,9 +152,7 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     # This makes three 3D meshgrids in for the x, y, and z positions
     # These cubes will be flattened and then used to normalize atomic positions
     # in the middle of a datacube
-    xx = grid_1d.view(-1, 1, 1).repeat(1, len(grid_1d), len(grid_1d))
-    yy = grid_1d.view(1, -1, 1).repeat(len(grid_1d), 1, len(grid_1d))
-    zz = grid_1d.view(1, 1, -1).repeat(len(grid_1d), len(grid_1d), 1)
+    xx, yy, zz = grid_positions(grid_1d)
 
     # this used to be enumerate(protein_dict['atom_type_set']), but we only want
     # a few atomic channels
@@ -204,3 +216,14 @@ class loader():
         """
         fields = voxelize(self.protein_dict)
         return fields[channel]
+
+def main():
+    """
+    this is main method to call the defined functions
+    """
+    protein_path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/6fww.pd'
+    protein_dict = load_pdb(protein_path)
+    fields = voxelize(protein_dict)
+    dave_viz.plot_field(fields['CA'])
+
+main()
