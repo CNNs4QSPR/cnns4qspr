@@ -12,4 +12,7 @@ field = voxelize(pdb_dict)['CA']
 cnn = load_cnn('cnn_no_vae.ckpt')
 
 ### Internals plots
-plot_internals(cnn, field, 0, 0)
+plot_field(field, threshold=0.0001)
+plot_internals(cnn, field, 0, 0, threshold_on=False)
+plot_internals(cnn, field, 0, 2, threshold_on=False)
+plot_internals(cnn, field, 0, 3, threshold_on=False)
