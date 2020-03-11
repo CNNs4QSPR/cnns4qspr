@@ -32,5 +32,6 @@ def load_cnn(checkpoint_fn):
     # Load model
     cnn = CNN.network()
     cnn.load_state_dict(checkpoint['state_dict'])
+    cnn.eval()
 
     return cnn
