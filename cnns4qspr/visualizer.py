@@ -50,3 +50,10 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.0001, alph
                         color='intensity', opacity=alpha,
                         color_continuous_scale=color)
     fig.show()
+
+def plot_internals(model, field):
+    """
+    This function enables visualization of the output of various convolutional
+    layers inside the model.
+    """
+    
