@@ -29,7 +29,7 @@ def outer_block5_hook(module, input_, output):
     outer_block5_out = output
 
 
-def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.0001, alpha=0.7, show=True):
+def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0.7, show=True):
     """
     This function takes a field datacube from voxelizer and plots a heat map of
     the 50x50x50 field. The field describes an atomic "denisty" at each voxel.
@@ -47,6 +47,8 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.0001, alph
     if from_voxelizer:
         cube = field.numpy()
         cube = np.reshape(cube, (50,50,50))
+
+    cube /= cube.max()
 
     cubelist = []
     x = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
@@ -83,7 +85,7 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.0001, alph
     else:
         return fig
 
-def plot_internals(model, field, block=0, channel=0):
+def plot_internals(model, field, block=0, channel=0, threshold_on=True):
     """
     This function enables visualization of the output of various convolutional
     layers inside the model.
@@ -105,5 +107,8 @@ def plot_internals(model, field, block=0, channel=0):
               outer_block5_out]
 
     internal_field = blocks[block][:,channel,:,:,:].detach()
-    fig = plot_field(internal_field, threshold=2.5, show=False)
+    if threshold_on:
+        fig = plot_field(internal_field, show=False)
+    else:
+        fig = plot_field(internal_field, threshold=0.0001, show=False)
     fig.show()
