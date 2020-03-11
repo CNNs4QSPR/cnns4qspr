@@ -196,6 +196,7 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 
         # add an empty dimmension to make it 1x50x50x50
         sum_densities = sum_densities.unsqueeze(0)
+        sum_densities = sum_densities.unsqueeze(0)
 
         #fields[atom_type_index] = sum_densities
         fields[atom_type] = sum_densities
