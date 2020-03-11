@@ -1,10 +1,39 @@
+# what language
 language: python
 
-matrix:
-    include:
-        - python: 3.6
+# what versions of python
+python:
+  - "3.6"
 
-# what branches should be evaluated 
+# what branches should be evaluated
 branches:
     only:
         - master
+
+# commands to prepare the conda install - download the latest conda
+# and install it and add to path
+before_install:
+    - curl -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    - chmod +x miniconda.sh
+    - ./miniconda.sh -b
+    - export PATH=/home/travis/miniconda3/bin:$PATH
+    - conda update --yes conda
+    - source $(conda info --root)/etc/profile.d/conda.sh
+
+# list of commands to run to setup the environment
+install:
+    - conda create --yes -n test-environment python=$TRAVIS_PYTHON_VERSION
+    - conda activate test-environment
+    - conda install --yes coverage coveralls pylint
+    - conda install --yes pytorch torchvision -c pytorch
+    - cd $(conda info --root)/envs/test-environment/lib/python3.6/site-packages/
+    - git clone https://github.com/AMLab-Amsterdam/lie_learn
+    - cd lie_learn
+    - python setup.py install
+    - cd ..
+    - git clone https://github.com/CNNs4QSPR/se3cnn.git
+    - cd se3cnn
+    - python setup.py install
+
+script:
+    - echo "Hello, Travis"
