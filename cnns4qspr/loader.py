@@ -6,17 +6,8 @@ used for plotting, or to send into the convolutional neural network.
 
 import torch
 import numpy as np
-# from biopandas.mol2 import PandasMol2
-# import sys
-# sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/se3cnn_v3')
-# import dave_viz
-
-# this is to import a protein file
-# sys.path.append('/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs')
 
 from biopandas.pdb import PandasPdb
-
-# from
 
 def load_pdb(path):
     """
@@ -110,7 +101,7 @@ def  grid_positions(grid_array):
     zz = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
     return (xx, yy, zz)
 
-def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
+def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
     This function takes a protein dict (from load_pdb function) and outputs a
     large tensor containing many atomic "fields" for the protein. The fields
@@ -194,7 +185,7 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         # set all nans to 0
         sum_densities[sum_densities != sum_densities] = 0
 
-        # add an empty dimmension to make it 1x50x50x50
+        # add two empty dimmensions to make it 1x1x50x50x50
         sum_densities = sum_densities.unsqueeze(0)
         sum_densities = sum_densities.unsqueeze(0)
 
@@ -204,30 +195,29 @@ def voxelize(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 
     return fields
 
-class loader():
+def voxelize(path, channels=['CA']):
     """
-    docstring
+    This function creates a dictionary of tensor fields directly from a pdb file.
+    These tensor fields can be plotted, or sent directly into the cnn for
+    plotting internals, or sent all the way through a cnn/vae to be used for
+    training.
+
+    Parameters:
+    ___________
+    path (str, required): path to a .pdb file
+
+    channels (list, optional): The list of atomic channels to be included in
+        the output dictionary, one field for every channel. Channel options are:
+        ['C' 'CA' 'CB' 'CD' 'CD1' 'CD2' 'CE' 'CE1' 'CE2' 'CE3' 'CG' 'CG1' 'CG2'
+         'CH2' 'CZ' 'CZ2' 'CZ3' 'N' 'ND1' 'ND2' 'NE' 'NE1' 'NE2' 'NH1' 'NH2' 'NZ'
+         'O' 'OD1' 'OD2' 'OE1' 'OE2' 'OG' 'OG1' 'OH' 'OXT' 'SD' 'SG']
+
+        Channels with good diversity of densities include: C/CA, CD, NH2, OH, SD/SG
+
+    Returns:
+    ________
+    a dictionary of fields, each one with shape =  ([1, 1, 50, 50, 50])
+
     """
-
-    def __init__(self, path_to_pdb_file):
-        """
-        docstring
-        """
-
-    def __getitem__(self, channel='CA'):
-        """
-        docstring
-        """
-        fields = voxelize(self.protein_dict)
-        return fields[channel]
-
-def main():
-    """
-    this is main method to call the defined functions
-    """
-    protein_path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/6fww.pd'
-    protein_dict = load_pdb(protein_path)
-    fields = voxelize(protein_dict)
-    dave_viz.plot_field(fields['CA'])
-
-# main()
+    protein_dict = load_pdb(path)
+    return make_fields(protein_dict, channels=channels)
