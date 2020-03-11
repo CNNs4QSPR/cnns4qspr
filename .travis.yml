@@ -44,7 +44,7 @@ install:
 # installing things relevant to unit testing
     - conda install --yes -c anaconda coverage
     - conda install --yes -c anaconda nose
-    - conda install --yes -c conda-forge coverall
+    - conda install --yes -c conda-forge coveralls
 
 script:
     - cd /home/travis/build/CNNs4QSPR/cnns4qspr/cnns4qspr/tests
