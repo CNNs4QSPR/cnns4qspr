@@ -12,3 +12,9 @@ cnn = load_cnn('cnn_no_vae.ckpt')
 
 feature_vector = cnn(x)
 print(feature_vector.shape)
+
+print(fields.shape)
+#cnn = load_cnn('cnn_no_vae.ckpt')
+
+#feature_vector = cnn(fields)
+#print(feature_vector.shape)
