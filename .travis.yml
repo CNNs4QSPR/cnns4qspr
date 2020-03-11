@@ -37,7 +37,9 @@ install:
     - cd se3cnn
     - python setup.py install
 # installing nosetests, coverage
-    - conda install --yes coverage nosetests coveralls
+    - conda install --yes -c anaconda coverage
+    - conda install --yes -c anaconda nose
+    - conda install --yes -c conda-forge coveralls
 
 script:
     - coverage run -m nose
