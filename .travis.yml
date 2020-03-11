@@ -13,7 +13,7 @@ branches:
 # commands to prepare the conda install - download the latest conda
 # and install it and add to path
 before_install:
-    - curl -O anaconda.sh https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh
+    - curl -o anaconda.sh https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh
     - chmod +x anaconda.sh
     - ./anaconda.sh -b
     - export PATH=/home/travis/anaconda3/bin:$PATH
