@@ -22,13 +22,11 @@ def vae_loss(vae_in, vae_out, mu, logvar):
     BCE = F.binary_cross_entropy(vae_out, vae_in.view(-1, 256), reduction='mean')
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    # print('recon_l_tr={} kld_l_tr={} predict_l_tr = {} total_l_tr={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)+abs(PCE)))
     return abs(BCE) + abs(KLD)
 
 def predictor_loss(labels, predictions):
     PCE = F.cross_entropy(predictions, labels, reduction='mean')
 
-    # print('recon_l_tr={} kld_l_tr={} predict_l_tr = {} total_l_tr={}'.format(abs(BCE), abs(KLD), abs(PCE), abs(BCE)+abs(KLD)+abs(PCE)))
     return PCE
 
 def train_loop(model, loader, optimizer, epoch):

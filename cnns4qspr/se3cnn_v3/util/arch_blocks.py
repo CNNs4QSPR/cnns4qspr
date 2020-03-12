@@ -103,7 +103,7 @@ class SE3GatedResBlock(nn.Module):
                  batch_norm_momentum=0.01,
                  normalization="batch",
                  capsule_dropout_p=0.1,
-                 scalar_gate_activation=(F.relu, F.sigmoid),
+                 scalar_gate_activation=(F.relu, torch.sigmoid),
                  downsample_by_pooling=False):
         super().__init__()
 
@@ -337,16 +337,16 @@ class VAE(nn.Module):
         self.input_size = input_size
         self.latent_size = latent_size
         self.type = type
-        self.parameters = {'type': type,
-                           'latent_size': latent_size,
-                           'output_nodes': n_output,
-                           'input_size': input_size,
-                           'encoder_depth': encoder_depth,
-                           'encoder_size': encoder_size,
-                           'decoder_depth': decoder_depth,
-                           'decoder_size': decoder_size,
-                           'predictor_depth': predictor_depth,
-                           'predictor_size': predictor_size}
+        self.info = {'type': type,
+                     'latent_size': latent_size,
+                     'output_nodes': n_output,
+                     'input_size': input_size,
+                     'encoder_depth': encoder_depth,
+                     'encoder_size': encoder_size,
+                     'decoder_depth': decoder_depth,
+                     'decoder_size': decoder_size,
+                     'predictor_depth': predictor_depth,
+                     'predictor_size': predictor_size}
         self.encoder_nodes = [input_size] + encoder_size
         self.decoder_nodes = [latent_size] + decoder_size + [input_size]
         self.predictor_nodes = [latent_size] + predictor_size + [n_output]
