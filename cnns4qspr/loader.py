@@ -129,12 +129,15 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     fields (numpy array or pytorch tensor): A list of atomic density tensors
         (50x50x50), one for each channel in channels
     """
-    # list of
-    allowed_residues = protein_dict['residue_set']
+    # sets of allowed filters to build channels with
+    residue_filters = protein_dict['residue_set']
+    atom_filters    = protein_dict['atom_type_set']
+    residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar', 'charged'])
+    other_filters = np.array(['backbone', 'sidechains'])
 
-    allowed_atoms = protein_dict['atom_type_set']
-
-    allowed_filters = np.array(['backbone', 'sidechains'])
+    # consolidate into one set of filters
+    filter_set = {'atom':atom_filters, 'residue':residue_filters,\
+                  'residue_property':residue_property_filters, 'other':other_filters}
 
     # construct a single empty field, then initialize a dictionary with one
     # empty field for every channel we are going to calculate the density for
@@ -154,62 +157,17 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     for channel_index, channel in enumerate(channels):
 
         # no illegal channels allowed, assume the channel sucks
-        channel_allowed = False
-        for channel_type in [allowed_atoms, allowed_residues, allowed_filters]:
-            if channel in channel_type:
-                channel_allowed = True
+        channel_allowed = check_channel(channel, filter_set)
 
         if channel_allowed:
             pass
         else:
-            raise ValueError('The channel ', channel, ' is not allowed for this protein.',\
-                             'Allowed channels are: in a protein\'s atom_type_set, residue_set',\
-                             ' or the \'sidechains\' and \'backbone\' channels.')
+            #err_string = 'Allowed channels are: in a protein\'s atom_type_set, residue_set',or the \'sidechains\' and \'backbone\' channels.'
+            raise ValueError('The channel ', channel, ' is not allowed for this protein.')
 
 
         # Extract positions of atoms that are part of the current channel
-        if channel in allowed_atoms:
-            atom_positions = protein_dict['shifted_positions'][protein_dict['atom_types'] == channel]
-
-        elif channel in allowed_residues:
-            atom_positions = protein_dict['shifted_positions'][protein_dict['residues'] == channel]
-
-        else: # the channel is an agregate filter, either backbone or sidechains
-            if channel == 'backbone':
-                # create boolean arrays for backbone atoms
-                bool_O = protein_dict['atom_types'] == 'O'
-                bool_C = protein_dict['atom_types'] == 'C'
-                bool_CA = protein_dict['atom_types'] == 'CA'
-                bool_N = protein_dict['atom_types'] == 'N'
-
-                # sum of all the backbone channels into one boolean array
-                bool_backbone = bool_O + bool_C + bool_CA + bool_N
-
-                # select the backbone atoms
-                atom_positions = protein_dict['shifted_positions'][bool_backbone]
-
-            else: # it was 'sidechain' filter, so grab sidechain atoms
-                backbone_atom_set = np.array(['O', 'C', 'CA', 'N'])
-                sidechain_atom_set = np.array([atom for atom in protein_dict['atom_type_set'] \
-                                               if atom not in backbone_atom_set])
-
-                for index, sidechain_atom in enumerate(sidechain_atom_set):
-                    if index == 0:
-                        # create the first sidechains boolean array, will be edited
-                        bool_sidechains = protein_dict['atom_types'] == sidechain_atom
-                    else:
-                        # single boolean array for the current sidechain atom
-                        bool_atom = protein_dict['atom_types'] == sidechain_atom
-
-                        # sum this boolean array with the master boolean array
-                        bool_sidechains += bool_atom
-
-                # grab all sidechain atom positions
-                atom_positions = protein_dict['shifted_positions'][bool_sidechains]
-
-
-
-
+        atom_positions = find_channel_atoms(channel, protein_dict, filter_set)
         atom_positions = torch.FloatTensor(atom_positions)
 
         # xx.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
@@ -253,6 +211,85 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 
 
     return fields
+
+def check_channel(channel, filter_set):
+    """
+    This function checks to see if a channel the user is asking to make a field
+    for is an allowed channel to ask for.
+
+    Parameters:
+    ___________
+    channel (str, required): The atomic channel being requested
+
+    filter_set (dict, required): The set of defined atomic filters
+
+    Returns: channel_allowed (bool): Boolean indicating whether the channel is allowed
+    """
+    channel_allowed = False
+    for key in filter_set:
+        if channel in filter_set[key]:
+            channel_allowed = True
+
+    return channel_allowed
+
+def find_channel_atoms(channel, protein_dict, filter_set):
+    """
+    This function finds the coordinates of all relevant atoms in a channel.
+    It uses the filter set to constrcut the atomic channel (i.e., a channel can
+    be composed of multiple filters).
+
+    Parameters:
+    ___________
+    channel (str, required): The atomic channel being constructed
+
+    protein_dict (dict, required): The dictionary of the protein, returned from
+        load_pdb()
+
+    filter_set (dict, required): The set of available filters to construct channels with
+    """
+    if channel in filter_set['atom']:
+        atom_positions = protein_dict['shifted_positions'][protein_dict['atom_types'] == channel]
+
+    elif channel in filter_set['residue']:
+        atom_positions = protein_dict['shifted_positions'][protein_dict['residues'] == channel]
+
+    elif channel in filter_set['other']:
+        if channel == 'backbone':
+            # create boolean arrays for backbone atoms
+            bool_O = protein_dict['atom_types'] == 'O'
+            bool_C = protein_dict['atom_types'] == 'C'
+            bool_CA = protein_dict['atom_types'] == 'CA'
+            bool_N = protein_dict['atom_types'] == 'N'
+
+            # sum of all the backbone channels into one boolean array
+            bool_backbone = bool_O + bool_C + bool_CA + bool_N
+
+            # select the backbone atoms
+            atom_positions = protein_dict['shifted_positions'][bool_backbone]
+
+        else: # it was 'sidechain' filter, so grab sidechain atoms
+            backbone_atom_set = np.array(['O', 'C', 'CA', 'N'])
+            sidechain_atom_set = np.array([atom for atom in protein_dict['atom_type_set'] \
+                                           if atom not in backbone_atom_set])
+
+            for index, sidechain_atom in enumerate(sidechain_atom_set):
+                if index == 0:
+                    # create the first sidechains boolean array, will be edited
+                    bool_sidechains = protein_dict['atom_types'] == sidechain_atom
+                else:
+                    # single boolean array for the current sidechain atom
+                    bool_atom = protein_dict['atom_types'] == sidechain_atom
+
+                    # sum this boolean array with the master boolean array
+                    bool_sidechains += bool_atom
+
+            # grab all sidechain atom positions
+            atom_positions = protein_dict['shifted_positions'][bool_sidechains]
+
+    else: # it was a residue property channel
+        pass
+        
+    return atom_positions
 
 def voxelize(path, channels=['CA']):
     """
