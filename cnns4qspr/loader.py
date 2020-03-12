@@ -97,7 +97,7 @@ def shift_coords(protein_dict):
 
     return protein_dict
 
-def  grid_positions(grid_array):
+def grid_positions(grid_array):
     xx = grid_array.view(-1, 1, 1).repeat(1, len(grid_array), len(grid_array))
     yy = grid_array.view(1, -1, 1).repeat(len(grid_array), 1, len(grid_array))
     zz = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)

@@ -284,59 +284,86 @@ class ResNet(nn.Module):
     def forward(self, x):
         return self.blocks(x)
 
+# class VAE(nn.Module):
+#     def __init__(self, in_repr, latent_size, out_repr):
+#         super().__init__()
+#
+#         self.in_repr = in_repr
+#         self.layers = []
+#         self.layers.append(nn.Linear(in_repr, 128))
+#         self.layers.append(nn.Linear(128, latent_size))
+#         self.layers.append(nn.Linear(128, latent_size))
+#         self.layers.append(nn.Linear(latent_size, 128))
+#         self.layers.append(nn.Linear(128, in_repr))
+#         self.layers = nn.Sequential(*self.layers)
+#
+#     def encode(self, x):
+#         h1 = F.relu(self.layers[0](x))
+#         return self.layers[1](h1), self.layers[2](h1)
+#
+#     def reparameterize(self, mu, logvar):
+#         std = torch.exp(0.5*logvar)
+#         eps = torch.randn_like(std)
+#         return mu + eps*std
+#
+#     def decode(self, z):
+#         h3 = F.relu(self.layers[3](z))
+#         return torch.sigmoid(self.layers[4](h3))
+#
+#     def forward(self, x):
+#         mu, logvar = self.encode(x.view(-1, self.in_repr))
+#         z = self.reparameterize(mu, logvar)
+#         return self.decode(z), mu, logvar
+#
+#     def sample_latent_space(self, cnn_output):
+#         mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
+#         z = self.reparameterize(mu, logvar)
+#         return z
+
 class VAE(nn.Module):
-    def __init__(self, in_repr, latent_size, out_repr):
+    def __init__(self,
+                 latent_size,
+                 type='classifier',
+                 n_output=3,
+                 input_size=256,
+                 encoder_depth=1,
+                 encoder_size=[128],
+                 decoder_depth=1,
+                 decoder_size=[128],
+                 predictor_depth=3,
+                 predictor_size=[128,128]):
         super().__init__()
 
-        self.in_repr = in_repr
+        self.input_size = input_size
+        self.latent_size = latent_size
+        self.type = type
+        self.parameters = {'type': type,
+                           'latent_size': latent_size,
+                           'output_nodes': n_output,
+                           'input_size': input_size,
+                           'encoder_depth': encoder_depth,
+                           'encoder_size': encoder_size,
+                           'decoder_depth': decoder_depth,
+                           'decoder_size': decoder_size,
+                           'predictor_depth': predictor_depth,
+                           'predictor_size': predictor_size}
+        self.encoder_nodes = [input_size] + encoder_size
+        self.decoder_nodes = [latent_size] + decoder_size + [input_size]
+        self.predictor_nodes = [latent_size] + predictor_size + [n_output]
+
         self.layers = []
-        self.layers.append(nn.Linear(in_repr, 128))
-        self.layers.append(nn.Linear(128, latent_size))
-        self.layers.append(nn.Linear(128, latent_size))
-        self.layers.append(nn.Linear(latent_size, 128))
-        self.layers.append(nn.Linear(128, in_repr))
-        self.layers = nn.Sequential(*self.layers)
-
-    def encode(self, x):
-        h1 = F.relu(self.layers[0](x))
-        return self.layers[1](h1), self.layers[2](h1)
-
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        return mu + eps*std
-
-    def decode(self, z):
-        h3 = F.relu(self.layers[3](z))
-        return torch.sigmoid(self.layers[4](h3))
-
-    def forward(self, x):
-        mu, logvar = self.encode(x.view(-1, self.in_repr))
-        z = self.reparameterize(mu, logvar)
-        return self.decode(z), mu, logvar
-
-    def sample_latent_space(self, cnn_output):
-        mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
-        z = self.reparameterize(mu, logvar)
-        return z
-
-class VAE_Predictor(nn.Module):
-    def __init__(self, in_repr, latent_size, out_repr):
-        super().__init__()
-
-        self.in_repr = in_repr
-        self.layers = []
-        self.layers.append(nn.Linear(in_repr, 128))
-        self.layers.append(nn.Linear(128, latent_size))
-        self.layers.append(nn.Linear(128, latent_size))
-        self.layers.append(nn.Linear(latent_size, 128))
-        self.layers.append(nn.Linear(128, in_repr))
+        for i in range(encoder_depth):
+            self.layers.append(nn.Linear(self.encoder_nodes[i], self.encoder_nodes[i+1]))
+            if i+1 == encoder_depth:
+                self.layers.append(nn.Linear(self.encoder_nodes[-1], latent_size))
+                self.layers.append(nn.Linear(self.encoder_nodes[-1], latent_size))
+        for i in range(decoder_depth+1):
+            self.layers.append(nn.Linear(self.decoder_nodes[i], self.decoder_nodes[i+1]))
         self.layers = nn.Sequential(*self.layers)
 
         self.predict = []
-        self.predict.append(nn.Linear(latent_size, 128))
-        self.predict.append(nn.Linear(128, 128))
-        self.predict.append(nn.Linear(128, out_repr))
+        for i in range(predictor_depth):
+            self.predict.append(nn.Linear(self.predictor_nodes[i], self.predictor_nodes[i+1]))
         self.predict = nn.Sequential(*self.predict)
 
     def encode(self, x):
@@ -353,13 +380,13 @@ class VAE_Predictor(nn.Module):
         return torch.sigmoid(self.layers[4](h3))
 
     def forward(self, x):
-        mu, logvar = self.encode(x.view(-1, self.in_repr))
+        mu, logvar = self.encode(x.view(-1, self.input_size))
         z = self.reparameterize(mu, logvar)
         predictions = self.predict(mu)
         return self.decode(z), mu, logvar, predictions
 
     def sample_latent_space(self, cnn_output):
-        mu, logvar = self.encode(cnn_output.view(-1, self.in_repr))
+        mu, logvar = self.encode(cnn_output.view(-1, self.input_size))
         z = self.reparameterize(mu, logvar)
         return z
 
