@@ -26,7 +26,6 @@ install:
     - conda create --yes -n test-environment python=$TRAVIS_PYTHON_VERSION
     - conda activate test-environment
 # install the dependencies of the cnns4qspr repo
-    - conda install --yes coverage coveralls pylint
     - conda install --yes pytorch torchvision -c pytorch
     - conda install --yes -c conda-forge biopandas
     - conda install --yes plotly
@@ -44,13 +43,12 @@ install:
     - python setup.py install
 # installing things relevant to unit testing
     - conda install --yes -c anaconda coverage
-    - conda install --yes -c anaconda nose
     - conda install --yes -c conda-forge coveralls
 
 script:
     - cd /home/travis/build/CNNs4QSPR/cnns4qspr
-    - python -m unittest discover
+    - coverage run -m unittest discover
 
 after_success:
-  # - coverage report
-  # - coveralls
+    - coverage report
+  #  - coveralls
