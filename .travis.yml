@@ -47,8 +47,7 @@ install:
     - conda install --yes -c conda-forge coveralls
 
 script:
-    - cd /home/travis/build/CNNs4QSPR/cnns4qspr/cnns4qspr/tests
-    - coverage run -m nose
+    - python -m unittest discover
 
 after_success:
   # - coverage report
