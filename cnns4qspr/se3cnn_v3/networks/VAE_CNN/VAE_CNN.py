@@ -44,5 +44,5 @@ class network(ResNet):
             AvgSpacial(),
             nn.Dropout(p=args.p_drop_fully,
                        inplace=True) if args.p_drop_fully is not None else None,
-            VAE_Predictor(features[4][-1][-1][0], latent_size, n_output)
+            VAE(latent_size, input_size=features[4][-1][-1][0], n_output=n_output, predictor_depth=0)
         )
