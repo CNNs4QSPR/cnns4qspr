@@ -6,7 +6,7 @@ import unittest
 # import os
 # os.chdir('../')
 # print(os.listdir())
-import loader
+import cnns4qspr.loader
 print('FUCKING LOADED ')
 # import glob
 # import os
