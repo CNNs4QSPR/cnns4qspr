@@ -1,23 +1,10 @@
 import torch
 import numpy as np
 from biopandas.pdb import PandasPdb
-# import cnns4qspr.cnns4qspr.loader
 import unittest
-# import os
-# os.chdir('../')
-# print(os.listdir())
+
 import cnns4qspr.loader as loader
-print('FUCKING LOADED ')
-# import glob
-# import os
-# import sys
-# module_path = os.path.abspath(os.path.join('..'))
-# if module_path not in sys.path:
-#     sys.path.append(module_path)
-# import loader
-# import sys
-# sys.path.insert(1,'/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr')
-# import loader
+
 
 class test_loader(unittest.TestCase):
 
@@ -27,7 +14,7 @@ class test_loader(unittest.TestCase):
         """
         This is for testing the load_pdb function.
         """
-        self.path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -41,7 +28,7 @@ class test_loader(unittest.TestCase):
         This is for testing the shift_coords function.
         """
         # protein_dict = loader.load_pdb(path)
-        self.path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -54,7 +41,7 @@ class test_loader(unittest.TestCase):
         This unit test is for testing the voxelize funtion.
         """
         # protein_dict = loader.load_pdb(self.path)
-        self.path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -68,7 +55,7 @@ class test_loader(unittest.TestCase):
         """
         This unit test is for testing the grid_positions function.
         """
-        self.path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -88,7 +75,7 @@ class test_loader(unittest.TestCase):
         """
         This is for testing the make_fields function.
         """
-        self.path = '/Users/nisargjoshi/Desktop/direct_project/cnns4qspr/cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
