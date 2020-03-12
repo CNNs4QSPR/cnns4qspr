@@ -55,11 +55,13 @@ def load_pdb(path):
 
     # residue names
     residue_names = pdf['residue_name'].values
+    residue_set = np.unique(residue_names)
 
     protein_dict = {'x_coords':x_coords, 'y_coords':y_coords, 'z_coords':z_coords,
                     'positions':positions, 'atom_types':atom_types,
                     'num_atoms':num_atoms, 'atom_type_set':atom_type_set,
-                    'num_atom_types':num_atom_types, 'residue_names':residue_names}
+                    'num_atom_types':num_atom_types, 'residues':residue_names,
+                    'residue_set':residue_set}
 
     # add a value to the dictionary, which is all of the atomic coordinates just
     # shifted to the origin
@@ -91,7 +93,6 @@ def shift_coords(protein_dict):
 
     # shift the coordinates by the midpoints of those extremes (center the protein on the origin)
     protein_dict['shifted_positions'] = protein_dict['positions'] - midpoints
-
 
     return protein_dict
 
@@ -127,13 +128,21 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     fields (numpy array or pytorch tensor): A list of atomic density tensors
         (50x50x50), one for each channel in channels
     """
+    # sets of allowed filters to build channels with
+    residue_filters = protein_dict['residue_set']
+    atom_filters    = protein_dict['atom_type_set']
+    residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
+                                         'charged', 'amphipathic'])
+    other_filters = np.array(['backbone', 'sidechains'])
 
-    # this is weird tuple construction going into this zeros call
-    # basically if the protein had 27 atom types, and we use 50 bins,
-    # this ends up being zeros((37,50,50,50))
+    # consolidate into one set of filters
+    filter_set = {'atom':atom_filters, 'residue':residue_filters,\
+                  'residue_property':residue_property_filters, 'other':other_filters}
+
+    # construct a single empty field, then initialize a dictionary with one
+    # empty field for every channel we are going to calculate the density for
     empty_field = torch.zeros((num_bins, num_bins, num_bins))
-    # this used to be fields = torch.zeros(*(len(channels),) + (num_bins, num_bins, num_bins))
-    fields = {atom_type:empty_field for atom_type in channels}
+    fields = {channel:empty_field for channel in channels}
 
     # create linearly spaced grid (default is -49 to 49 in steps of 2)
     grid_1d = torch.linspace(start=-num_bins / 2 * bin_size + bin_size / 2,
@@ -141,16 +150,25 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
                              steps=num_bins)
 
     # This makes three 3D meshgrids in for the x, y, and z positions
-    # These cubes will be flattened and then used to normalize atomic positions
-    # in the middle of a datacube
+    # These cubes will be flattened, then used as a reference coordinate system
+    # to place the actual channel densities into
     xx, yy, zz = grid_positions(grid_1d)
 
-    # this used to be enumerate(protein_dict['atom_type_set']), but we only want
-    # a few atomic channels
-    for atom_type_index, atom_type in enumerate(channels):
+    for channel_index, channel in enumerate(channels):
 
-        # Extract positions of only the current atom type (use the origin-centered coordinates)
-        atom_positions = protein_dict['shifted_positions'][protein_dict['atom_types'] == atom_type]
+        # no illegal channels allowed, assume the channel sucks
+        channel_allowed = check_channel(channel, filter_set)
+
+        if channel_allowed:
+            pass
+        else:
+            #err_string = 'Allowed channels are: in a protein\'s atom_type_set, residue_set',or the \'sidechains\' and \'backbone\' channels.'
+            raise ValueError('The channel ', channel, ' is not allowed for this protein.')
+
+
+        # Extract positions of atoms that are part of the current channel
+        atom_positions = find_channel_atoms(channel, protein_dict, filter_set)
+        print('This is channel ', channel)
         atom_positions = torch.FloatTensor(atom_positions)
 
         # xx.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
@@ -159,7 +177,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         yy_yy = yy.view(-1, 1).repeat(1, len(atom_positions))
         zz_zz = zz.view(-1, 1).repeat(1, len(atom_positions))
         # at this point we've created 3 arrays that are 125,000 long
-        # and as wide as the number of atoms that are the current atom type
+        # and as wide as the number of atoms that are the current channel type
         # these 3 arrays just contain the flattened x,y,z positions of our 50x50x50 box
 
 
@@ -185,15 +203,130 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         # set all nans to 0
         sum_densities[sum_densities != sum_densities] = 0
 
-        # add two empty dimmensions to make it 1x1x50x50x50
+        # add two empty dimmensions to make it 1x1x50x50x50, needed for CNN
         sum_densities = sum_densities.unsqueeze(0)
         sum_densities = sum_densities.unsqueeze(0)
 
         #fields[atom_type_index] = sum_densities
-        fields[atom_type] = sum_densities
+        fields[channel] = sum_densities
 
 
     return fields
+
+def check_channel(channel, filter_set):
+    """
+    This function checks to see if a channel the user is asking to make a field
+    for is an allowed channel to ask for.
+
+    Parameters:
+    ___________
+    channel (str, required): The atomic channel being requested
+
+    filter_set (dict, required): The set of defined atomic filters
+
+    Returns: channel_allowed (bool): Boolean indicating whether the channel is allowed
+    """
+    channel_allowed = False
+    for key in filter_set:
+        if channel in filter_set[key]:
+            channel_allowed = True
+
+    return channel_allowed
+
+def find_channel_atoms(channel, protein_dict, filter_set):
+    """
+    This function finds the coordinates of all relevant atoms in a channel.
+    It uses the filter set to constrcut the atomic channel (i.e., a channel can
+    be composed of multiple filters).
+
+    Parameters:
+    ___________
+    channel (str, required): The atomic channel being constructed
+
+    protein_dict (dict, required): The dictionary of the protein, returned from
+        load_pdb()
+
+    filter_set (dict, required): The set of available filters to construct channels with
+    """
+    if channel in filter_set['atom']:
+        atom_positions = protein_dict['shifted_positions'][protein_dict['atom_types'] == channel]
+
+    elif channel in filter_set['residue']:
+        atom_positions = protein_dict['shifted_positions'][protein_dict['residues'] == channel]
+
+    elif channel in filter_set['other']: # backbone or sidechain
+        if channel == 'backbone':
+            # create boolean arrays for backbone atoms
+            bool_O = protein_dict['atom_types'] == 'O'
+            bool_C = protein_dict['atom_types'] == 'C'
+            bool_CA = protein_dict['atom_types'] == 'CA'
+            bool_N = protein_dict['atom_types'] == 'N'
+
+            # sum of all the backbone channels into one boolean array
+            bool_backbone = bool_O + bool_C + bool_CA + bool_N
+
+            # select the backbone atoms
+            atom_positions = protein_dict['shifted_positions'][bool_backbone]
+
+        else: # it was 'sidechain' filter, so grab sidechain atoms
+            backbone_atom_set = np.array(['O', 'C', 'CA', 'N'])
+            sidechain_atom_set = np.array([atom for atom in protein_dict['atom_type_set'] \
+                                           if atom not in backbone_atom_set])
+
+            for index, sidechain_atom in enumerate(sidechain_atom_set):
+                if index == 0:
+                    # create the first sidechains boolean array, will be edited
+                    bool_sidechains = protein_dict['atom_types'] == sidechain_atom
+                else:
+                    # single boolean array for the current sidechain atom
+                    bool_atom = protein_dict['atom_types'] == sidechain_atom
+
+                    # sum this boolean array with the master boolean array
+                    bool_sidechains += bool_atom
+
+            # grab all sidechain atom positions
+            atom_positions = protein_dict['shifted_positions'][bool_sidechains]
+
+    else: # it was a residue property channel
+        acidic_residues = np.array(['ASP', 'GLU'])
+        basic_residues = np.array(['LYS', 'ARG', 'HIS'])
+        polar_residues = np.array(['GLN', 'ASN', 'HIS', 'SER', 'THR', 'TYR', 'CYS'])
+        nonpolar_residues = np.array(['GLY', 'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PRO', 'PHE', 'TRP'])
+        amphipathic_residues = np.array(['TRP', 'TYR', 'MET'])
+        charged_residues = np.array(['ARG', 'LYS', 'ASP', 'GLU'])
+        # custom_residues = something
+        property_dict = {'acidic':acidic_residues, 'basic':basic_residues,\
+                             'polar':polar_residues, 'nonpolar':nonpolar_residues,\
+                             'amphipathic':amphipathic_residues, 'charged':charged_residues}
+
+        atom_positions = atoms_from_residues(protein_dict, property_dict[channel])
+
+    return atom_positions
+
+def atoms_from_residues(protein_dict, residue_list):
+    """
+    This function finds all the atoms in a protein that are members of any residues
+    in a list of residues.
+
+    Parameters:
+    ___________
+    protein_dict (dict, required): The dictionary of the protein, returned from
+        load_pdb()
+
+    residue_list (list-like, required): The list of residues whose atoms we are
+        finding coordinates for
+    """
+    print('*** in atoms_from_residues *** ')
+    # construct the appropriate boolean array to index the atoms in the protein_dict
+    for index, residue in enumerate(residue_list):
+        if index == 0:
+            bool_residue = protein_dict['residues'] == residue
+        else:
+            bool_residue += protein_dict['residues'] == residue
+
+    atom_positions = protein_dict['shifted_positions'][bool_residue]
+
+    return atom_positions
 
 def voxelize(path, channels=['CA']):
     """
