@@ -94,7 +94,6 @@ def shift_coords(protein_dict):
     # shift the coordinates by the midpoints of those extremes (center the protein on the origin)
     protein_dict['shifted_positions'] = protein_dict['positions'] - midpoints
 
-
     return protein_dict
 
 def grid_positions(grid_array):
@@ -132,7 +131,8 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     # sets of allowed filters to build channels with
     residue_filters = protein_dict['residue_set']
     atom_filters    = protein_dict['atom_type_set']
-    residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar', 'charged'])
+    residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
+                                         'charged', 'amphipathic'])
     other_filters = np.array(['backbone', 'sidechains'])
 
     # consolidate into one set of filters
@@ -168,6 +168,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 
         # Extract positions of atoms that are part of the current channel
         atom_positions = find_channel_atoms(channel, protein_dict, filter_set)
+        print('This is channel ', channel)
         atom_positions = torch.FloatTensor(atom_positions)
 
         # xx.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
@@ -253,7 +254,7 @@ def find_channel_atoms(channel, protein_dict, filter_set):
     elif channel in filter_set['residue']:
         atom_positions = protein_dict['shifted_positions'][protein_dict['residues'] == channel]
 
-    elif channel in filter_set['other']:
+    elif channel in filter_set['other']: # backbone or sidechain
         if channel == 'backbone':
             # create boolean arrays for backbone atoms
             bool_O = protein_dict['atom_types'] == 'O'
@@ -287,8 +288,44 @@ def find_channel_atoms(channel, protein_dict, filter_set):
             atom_positions = protein_dict['shifted_positions'][bool_sidechains]
 
     else: # it was a residue property channel
-        pass
-        
+        acidic_residues = np.array(['ASP', 'GLU'])
+        basic_residues = np.array(['LYS', 'ARG', 'HIS'])
+        polar_residues = np.array(['GLN', 'ASN', 'HIS', 'SER', 'THR', 'TYR', 'CYS'])
+        nonpolar_residues = np.array(['GLY', 'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PRO', 'PHE', 'TRP'])
+        amphipathic_residues = np.array(['TRP', 'TYR', 'MET'])
+        charged_residues = np.array(['ARG', 'LYS', 'ASP', 'GLU'])
+        # custom_residues = something
+        property_dict = {'acidic':acidic_residues, 'basic':basic_residues,\
+                             'polar':polar_residues, 'nonpolar':nonpolar_residues,\
+                             'amphipathic':amphipathic_residues, 'charged':charged_residues}
+
+        atom_positions = atoms_from_residues(protein_dict, property_dict[channel])
+
+    return atom_positions
+
+def atoms_from_residues(protein_dict, residue_list):
+    """
+    This function finds all the atoms in a protein that are members of any residues
+    in a list of residues.
+
+    Parameters:
+    ___________
+    protein_dict (dict, required): The dictionary of the protein, returned from
+        load_pdb()
+
+    residue_list (list-like, required): The list of residues whose atoms we are
+        finding coordinates for
+    """
+    print('*** in atoms_from_residues *** ')
+    # construct the appropriate boolean array to index the atoms in the protein_dict
+    for index, residue in enumerate(residue_list):
+        if index == 0:
+            bool_residue = protein_dict['residues'] == residue
+        else:
+            bool_residue += protein_dict['residues'] == residue
+
+    atom_positions = protein_dict['shifted_positions'][bool_residue]
+
     return atom_positions
 
 def voxelize(path, channels=['CA']):
