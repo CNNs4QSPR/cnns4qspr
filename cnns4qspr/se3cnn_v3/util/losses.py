@@ -4,6 +4,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def vae_loss(vae_in, vae_out, mu, logvar):
+    BCE = F.binary_cross_entropy(vae_out, vae_in.view(-1, 256), reduction='mean')
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return abs(BCE) + abs(KLD)
+
+def predictor_loss(labels, predictions):
+    PCE = F.cross_entropy(predictions, labels, reduction='mean')
+    return PCE
+
 def dice_coefficient_orig_binary(y_pred, y_true, y_pred_is_dist=False,
                                  classes=None, epsilon=1e-5, reduce=True):
     """As originally specified: using binary vectors and an explicit average
@@ -205,4 +214,3 @@ def cross_entropy_loss(y_pred, y_true, valid=None, overlap=None, reduce=True, cl
         return torch.sum(loss_per_voxel_sums) / torch.sum(loss_per_voxel_norm_consts)
     else:
         return loss_per_voxel_sums, loss_per_voxel_norm_consts
-
