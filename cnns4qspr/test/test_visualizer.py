@@ -24,4 +24,4 @@ class test_visualizer(unittest.TestCase):
         self.assertTrue(True)
         self.assertTrue(True)
 
-    return
+        return
