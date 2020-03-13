@@ -9,9 +9,14 @@ def vae_loss(vae_in, vae_out, mu, logvar):
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return abs(BCE) + abs(KLD)
 
-def predictor_loss(labels, predictions):
+def classifier_loss(labels, predictions):
     PCE = F.cross_entropy(predictions, labels, reduction='mean')
     return PCE
+
+def regressor_loss(labels, predictions):
+    labels = labels.view(-1,1)
+    MSE = F.mse_loss(predictions, labels, reduction='mean')
+    return MSE
 
 def dice_coefficient_orig_binary(y_pred, y_true, y_pred_is_dist=False,
                                  classes=None, epsilon=1e-5, reduce=True):

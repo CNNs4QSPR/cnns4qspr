@@ -72,8 +72,6 @@ def gen_feature_set(pdb_path, channels=['CA'], save=False, save_fn='feature_set.
     feature_set = np.zeros((len(channels), len(pdb_fns), 256))
 
     for j, pdb_fn in enumerate(pdb_fns):
-        if j > 0:
-            break
         progress = '{}/{} pdbs voxelized ({}%)'.format(j, len(pdb_fns), round(j / len(pdb_fns) * 100, 2))
         sys.stdout.write('\r'+progress)
         path = os.path.join(pdb_path, pdb_fn)

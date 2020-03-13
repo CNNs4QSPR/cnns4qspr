@@ -326,12 +326,9 @@ class VAE(nn.Module):
                  type='classifier',
                  n_output=3,
                  input_size=256,
-                 encoder_depth=1,
-                 encoder_size=[128],
-                 decoder_depth=1,
-                 decoder_size=[128],
-                 predictor_depth=3,
-                 predictor_size=[128,128]):
+                 encoder=[128],
+                 decoder=[128],
+                 predictor=[128,128]):
         super().__init__()
 
         self.input_size = input_size
@@ -341,28 +338,28 @@ class VAE(nn.Module):
                      'latent_size': latent_size,
                      'output_nodes': n_output,
                      'input_size': input_size,
-                     'encoder_depth': encoder_depth,
-                     'encoder_size': encoder_size,
-                     'decoder_depth': decoder_depth,
-                     'decoder_size': decoder_size,
-                     'predictor_depth': predictor_depth,
-                     'predictor_size': predictor_size}
-        self.encoder_nodes = [input_size] + encoder_size
-        self.decoder_nodes = [latent_size] + decoder_size + [input_size]
-        self.predictor_nodes = [latent_size] + predictor_size + [n_output]
+                     'encoder': encoder,
+                     'decoder': decoder,
+                     'predictor': predictor}
+        self.encoder_depth = len(encoder)
+        self.decoder_depth = len(decoder)
+        self.predictor_depth = len(predictor)+1
+        self.encoder_nodes = [input_size] + encoder
+        self.decoder_nodes = [latent_size] + decoder + [input_size]
+        self.predictor_nodes = [latent_size] + predictor + [n_output]
 
         self.layers = []
-        for i in range(encoder_depth):
+        for i in range(self.encoder_depth):
             self.layers.append(nn.Linear(self.encoder_nodes[i], self.encoder_nodes[i+1]))
-            if i+1 == encoder_depth:
+            if i+1 == self.encoder_depth:
                 self.layers.append(nn.Linear(self.encoder_nodes[-1], latent_size))
                 self.layers.append(nn.Linear(self.encoder_nodes[-1], latent_size))
-        for i in range(decoder_depth+1):
+        for i in range(self.decoder_depth+1):
             self.layers.append(nn.Linear(self.decoder_nodes[i], self.decoder_nodes[i+1]))
         self.layers = nn.Sequential(*self.layers)
 
         self.predict = []
-        for i in range(predictor_depth):
+        for i in range(self.predictor_depth):
             self.predict.append(nn.Linear(self.predictor_nodes[i], self.predictor_nodes[i+1]))
         self.predict = nn.Sequential(*self.predict)
 
@@ -389,6 +386,32 @@ class VAE(nn.Module):
         mu, logvar = self.encode(cnn_output.view(-1, self.input_size))
         z = self.reparameterize(mu, logvar)
         return z
+
+class FeedForward(nn.Module):
+    def __init__(self,
+                 type='classifier',
+                 n_output=3,
+                 input_size=256,
+                 predictor=[128,128]):
+        super().__init__()
+
+        self.input_size = input_size
+        self.type = type
+        self.info = {'type': type,
+                     'output_nodes': n_output,
+                     'input_size': input_size,
+                     'predictor': predictor}
+        self.predictor_depth = len(predictor)+1
+        self.predictor_nodes = [input_size] + predictor + [n_output]
+
+        self.predict = []
+        for i in range(self.predictor_depth):
+            self.predict.append(nn.Linear(self.predictor_nodes[i], self.predictor_nodes[i+1]))
+        self.predict = nn.Sequential(*self.predict)
+
+    def forward(self, x):
+        predictions = self.predict(x)
+        return predictions
 
 class NonlinearityBlock(nn.Module):
     ''' wrapper around GatedBlock and NormBlock, selects based on string SE3Nonlniearity '''
