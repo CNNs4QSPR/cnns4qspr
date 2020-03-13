@@ -168,7 +168,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 
         # Extract positions of atoms that are part of the current channel
         atom_positions = find_channel_atoms(channel, protein_dict, filter_set)
-        print('This is channel ', channel)
+        # print('This is channel ', channel)
         atom_positions = torch.FloatTensor(atom_positions)
 
         # xx.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
