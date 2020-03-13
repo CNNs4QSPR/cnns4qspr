@@ -296,8 +296,8 @@ def find_channel_atoms(channel, protein_dict, filter_set):
         charged_residues = np.array(['ARG', 'LYS', 'ASP', 'GLU'])
         # custom_residues = something
         property_dict = {'acidic':acidic_residues, 'basic':basic_residues,\
-                             'polar':polar_residues, 'nonpolar':nonpolar_residues,\
-                             'amphipathic':amphipathic_residues, 'charged':charged_residues}
+                         'polar':polar_residues, 'nonpolar':nonpolar_residues,\
+                         'amphipathic':amphipathic_residues, 'charged':charged_residues}
 
         atom_positions = atoms_from_residues(protein_dict, property_dict[channel])
 
