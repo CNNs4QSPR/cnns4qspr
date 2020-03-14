@@ -89,6 +89,8 @@ class test_loader(unittest.TestCase):
         This function tests the check_channel() function
         """
         # sets of allowed filters to build channels with
+        path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        protein_dict = loader.load_pdb(path)
         residue_filters = protein_dict['residue_set']
         atom_filters    = protein_dict['atom_type_set']
         residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
@@ -101,3 +103,23 @@ class test_loader(unittest.TestCase):
 
         self.assertFalse(loader.check_channel('strawberries', filter_set))
         self.assertTrue(loader.check_channel('polar', filter_set))
+        self.assertTrue(loader.check_channel('backbone'))
+        self.assertTrue(loader.check_channel('LEU'))
+
+    def test_find_channel_atoms(self):
+        """
+        This method tests the find_channel_atoms function
+        """
+        # sets of allowed filters to build channels with
+        path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        protein_dict = loader.load_pdb(path)
+        residue_filters = protein_dict['residue_set']
+        atom_filters    = protein_dict['atom_type_set']
+        residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
+                                             'charged', 'amphipathic'])
+        other_filters = np.array(['backbone', 'sidechains'])
+
+        filter_set = {'atom':atom_filters, 'residue':residue_filters,\
+                      'residue_property':residue_property_filters, 'other':other_filters}
+
+        self.assertTrue(True)
