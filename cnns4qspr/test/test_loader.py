@@ -134,15 +134,30 @@ class test_loader(unittest.TestCase):
         for residue in ['LYS', 'MET', 'VAL', 'PRO', 'ALA', 'SER', 'LEU', 'ILE', 'ARG', 'ASP']:
             true_res_atoms = protein_dict['shifted_positions'][protein_dict['residues'] == residue]
             test_res_atoms = loader.find_channel_atoms(residue, protein_dict, filter_set)
-            print('Residue is',residue)
-            print('True and test is')
-            print(true_res_atoms, test_res_atoms)
             self.assertEqual(true_res_atoms.all(), test_res_atoms.all())
 
     def test_atoms_from_residues(self):
         """
         This method tests the atoms_from_residues function
         """
+        path = 'cnns4qspr/formatting_data/sample_pdbs/6fww.pdb'
+        protein_dict = loader.load_pdb(path)
+        residue_filters = protein_dict['residue_set']
+        atom_filters    = protein_dict['atom_type_set']
+        residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
+                                             'charged', 'amphipathic'])
+        other_filters = np.array(['backbone', 'sidechains'])
+
+        filter_set = {'atom':atom_filters, 'residue':residue_filters,\
+                      'residue_property':residue_property_filters, 'other':other_filters}
+
+        # test 1: assert that fin_channel_atoms is constructing the channels for all of these
+        # residues correctly
+        for residue in ['LYS', 'MET', 'VAL', 'PRO', 'ALA', 'SER', 'LEU', 'ILE', 'ARG', 'ASP']:
+            true_res_atoms = protein_dict['shifted_positions'][protein_dict['residues'] == residue]
+            test_res_atoms = loader.find_channel_atoms(residue, protein_dict, filter_set)
+            self.assertEqual(true_res_atoms.all(), test_res_atoms.all())
+
 
 
     if __name__ == '__main__':
