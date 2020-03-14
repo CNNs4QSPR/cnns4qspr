@@ -46,7 +46,7 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0
     cube = field[0][0].numpy()
     if from_voxelizer:
         cube = field.numpy()
-        cube = np.reshape(cube, (50,50,50))
+        cube = np.reshape(cube, (50, 50, 50))
 
     cube /= cube.max()
 
@@ -57,13 +57,13 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0
 
     # make a dataframe of x,y,z,intensity for each point in the cube
     # to do this have to loop through the cube
-    for i, x_ in enumerate(x):
+    for i, x2 in enumerate(x):
 
-        for j, y_ in enumerate(y):
+        for j, y2 in enumerate(y):
 
-            for k, z_ in enumerate(z):
+            for k, z2 in enumerate(z):
 
-                cubelist.append([x_, y_, z_, cube[i][j][k]])
+                cubelist.append([x2, y2, z2, cube[i][j][k]])
 
     cube_df = pd.DataFrame(cubelist, columns=['x', 'y', 'z', 'intensity'])
 
@@ -75,9 +75,9 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0
                         color_continuous_scale=color)
     fig.update_layout(
         scene = dict(
-            xaxis = dict(range=[-25,25]),
-            yaxis = dict(range=[-25,25]),
-            zaxis = dict(range=[-25,25])
+            xaxis = dict(range=[-25, 25]),
+            yaxis = dict(range=[-25, 25]),
+            zaxis = dict(range=[-25, 25])
         )
     )
     if show:
@@ -106,7 +106,7 @@ def plot_internals(model, field, block=0, channel=0, threshold_on=True):
               outer_block4_out,
               outer_block5_out]
 
-    internal_field = blocks[block][:,channel,:,:,:].detach()
+    internal_field = blocks[block][:,channel, :, :, :].detach()
     if threshold_on:
         fig = plot_field(internal_field, show=False)
     else:
