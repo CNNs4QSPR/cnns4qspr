@@ -41,15 +41,21 @@ class test_loader(unittest.TestCase):
         This unit test is for testing the voxelize funtion.
         """
         # protein_dict = loader.load_pdb(self.path)
-        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
-        self.protein_dict = loader.load_pdb(self.path)
-        self.num_bins = 50
-        self.bin_size = 2
-        dfields = loader.voxelize(self.path)
-        self.assertTrue(dfields['CA'].shape == torch.Size([1, 1, 50, 50, 50]))
-        self.assertTrue(dfields['CA'].dtype == torch.float32)
-        # assert dfields['CA'].device == torch.device('cpu')
-        return dfields
+        path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        num_bins = 50
+        bin_size = 2
+        protein_dict = loader.load_pdb(path)
+        # this both make 'CA' field as default
+        fields1 = loader.voxelize(path)
+        fields2 = loader.make_fields(protein_dict)
+
+        self.assertTrue(fields1['CA'].shape == torch.Size([1, 1, 50, 50, 50]))
+        self.assertTrue(fields1['CA'].dtype == torch.float32)
+
+        # check that the output of voxelizer, and the output of load_pdb >> make_fields
+        # is the same
+        self.assertEqual(fields1['CA'], fields2['CA'])
+
 
     def test_grid_positions(self):
         """
@@ -103,8 +109,8 @@ class test_loader(unittest.TestCase):
 
         self.assertFalse(loader.check_channel('strawberries', filter_set))
         self.assertTrue(loader.check_channel('polar', filter_set))
-        self.assertTrue(loader.check_channel('backbone'))
-        self.assertTrue(loader.check_channel('LEU'))
+        self.assertTrue(loader.check_channel('backbone', filter_set))
+        self.assertTrue(loader.check_channel('LEU', filter_set))
 
     def test_find_channel_atoms(self):
         """
@@ -122,4 +128,5 @@ class test_loader(unittest.TestCase):
         filter_set = {'atom':atom_filters, 'residue':residue_filters,\
                       'residue_property':residue_property_filters, 'other':other_filters}
 
+        # test 1: test that the return type of find channel atoms is np.array([])
         self.assertTrue(True)
