@@ -83,3 +83,21 @@ class test_loader(unittest.TestCase):
         self.assertTrue(output_fields['CA'].shape == torch.Size([1, 1, 50, 50, 50]))
         self.assertTrue(output_fields['CA'].dtype == torch.float32)
         return output_fields
+
+    def test_check_channel(self):
+        """
+        This function tests the check_channel() function
+        """
+        # sets of allowed filters to build channels with
+        residue_filters = protein_dict['residue_set']
+        atom_filters    = protein_dict['atom_type_set']
+        residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
+                                             'charged', 'amphipathic'])
+        other_filters = np.array(['backbone', 'sidechains'])
+
+        # consolidate into one set of filters
+        filter_set = {'atom':atom_filters, 'residue':residue_filters,\
+                      'residue_property':residue_property_filters, 'other':other_filters}
+
+        self.assertFalse(loader.check_channel('strawberries', filter_set))
+        self.assertTrue(loader.check_channel('polar', filter_set))
