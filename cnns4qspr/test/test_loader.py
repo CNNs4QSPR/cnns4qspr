@@ -53,8 +53,10 @@ class test_loader(unittest.TestCase):
         self.assertTrue(fields1['CA'].dtype == torch.float32)
 
         # check that the output of voxelizer, and the output of load_pdb >> make_fields
-        # is the same
-        self.assertEqual(fields1['CA'], fields2['CA'])
+        # is the same in various ways
+        self.assertEqual(len(fields1['CA']), len(fields2['CA']))
+        self.assertEqual(len(fields1['CA'][0][0], len(fields2['CA'][0][0]))
+        self.assertEqual(fields1.shape, fields2.shape)
 
 
     def test_grid_positions(self):
