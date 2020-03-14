@@ -97,10 +97,23 @@ def shift_coords(protein_dict):
     return protein_dict
 
 def grid_positions(grid_array):
-    xx = grid_array.view(-1, 1, 1).repeat(1, len(grid_array), len(grid_array))
-    yy = grid_array.view(1, -1, 1).repeat(len(grid_array), 1, len(grid_array))
-    zz = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
-    return (xx, yy, zz)
+    """
+    This function returns the 3D meshgrids of x, y and z positions.
+    These cubes will be flattened, then used as a reference coordinate system
+    to place the actual channel densities into.
+
+    Parameters:
+    ___________
+    grid_positions(grid_array): lineraly spaced grid
+
+    Returns:
+    ___________
+    grid_array(array): meshgrid array of the x, y and z positions.
+    """
+    xgrid = grid_array.view(-1, 1, 1).repeat(1, len(grid_array), len(grid_array))
+    ygrid = grid_array.view(1, -1, 1).repeat(len(grid_array), 1, len(grid_array))
+    zgrid = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
+    return (xgrid, ygrid, zgrid)
 
 def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
@@ -130,7 +143,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
     # sets of allowed filters to build channels with
     residue_filters = protein_dict['residue_set']
-    atom_filters    = protein_dict['atom_type_set']
+    atom_filters = protein_dict['atom_type_set']
     residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
                                          'charged', 'amphipathic'])
     other_filters = np.array(['backbone', 'sidechains'])
@@ -152,7 +165,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     # This makes three 3D meshgrids in for the x, y, and z positions
     # These cubes will be flattened, then used as a reference coordinate system
     # to place the actual channel densities into
-    xx, yy, zz = grid_positions(grid_1d)
+    xgrid, ygrid, zgrid = grid_positions(grid_1d)
 
     for channel_index, channel in enumerate(channels):
 
@@ -162,7 +175,8 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         if channel_allowed:
             pass
         else:
-            #err_string = 'Allowed channels are: in a protein\'s atom_type_set, residue_set',or the \'sidechains\' and \'backbone\' channels.'
+            #err_string = 'Allowed channels are: in a protein\'s atom_type_set,
+                        # residue_set',or the \'sidechains\' and \'backbone\' channels.'
             raise ValueError('The channel ', channel, ' is not allowed for this protein.')
 
 
@@ -171,20 +185,20 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         # print('This is channel ', channel)
         atom_positions = torch.FloatTensor(atom_positions)
 
-        # xx.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
+        # xgrid.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
         # then you repeat that column horizontally for each atom
-        xx_xx = xx.view(-1, 1).repeat(1, len(atom_positions))
-        yy_yy = yy.view(-1, 1).repeat(1, len(atom_positions))
-        zz_zz = zz.view(-1, 1).repeat(1, len(atom_positions))
+        xx_xx = xgrid.view(-1, 1).repeat(1, len(atom_positions))
+        yy_yy = ygrid.view(-1, 1).repeat(1, len(atom_positions))
+        zz_zz = zgrid.view(-1, 1).repeat(1, len(atom_positions))
         # at this point we've created 3 arrays that are 125,000 long
         # and as wide as the number of atoms that are the current channel type
         # these 3 arrays just contain the flattened x,y,z positions of our 50x50x50 box
 
 
         # now do the same thing as above, just with the ACTUAL atomic position data
-        posx_posx = atom_positions[:, 0].contiguous().view(1, -1).repeat(len(xx.view(-1)), 1)
-        posy_posy = atom_positions[:, 1].contiguous().view(1, -1).repeat(len(yy.view(-1)), 1)
-        posz_posz = atom_positions[:, 2].contiguous().view(1, -1).repeat(len(zz.view(-1)), 1)
+        posx_posx = atom_positions[:, 0].contiguous().view(1, -1).repeat(len(xgrid.view(-1)), 1)
+        posy_posy = atom_positions[:, 1].contiguous().view(1, -1).repeat(len(ygrid.view(-1)), 1)
+        posz_posz = atom_positions[:, 2].contiguous().view(1, -1).repeat(len(zgrid.view(-1)), 1)
         # three tensors of the same size, with actual atomic coordinates
 
         # normalizes the atomic positions with respect to the center of the box
@@ -198,7 +212,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         density /= torch.sum(density, dim=0)
 
         # Sum densities and reshape to original shape
-        sum_densities = torch.sum(density, dim=1).view(xx.shape)
+        sum_densities = torch.sum(density, dim=1).view(xgrid.shape)
 
         # set all nans to 0
         sum_densities[sum_densities != sum_densities] = 0
@@ -257,13 +271,13 @@ def find_channel_atoms(channel, protein_dict, filter_set):
     elif channel in filter_set['other']: # backbone or sidechain
         if channel == 'backbone':
             # create boolean arrays for backbone atoms
-            bool_O = protein_dict['atom_types'] == 'O'
-            bool_C = protein_dict['atom_types'] == 'C'
-            bool_CA = protein_dict['atom_types'] == 'CA'
-            bool_N = protein_dict['atom_types'] == 'N'
+            bool_oxygen = protein_dict['atom_types'] == 'O'
+            bool_carbon = protein_dict['atom_types'] == 'C'
+            bool_alphacarbon = protein_dict['atom_types'] == 'CA'
+            bool_nitrogen = protein_dict['atom_types'] == 'N'
 
             # sum of all the backbone channels into one boolean array
-            bool_backbone = bool_O + bool_C + bool_CA + bool_N
+            bool_backbone = bool_oxygen + bool_carbon + bool_alphacarbon + bool_nitrogen
 
             # select the backbone atoms
             atom_positions = protein_dict['shifted_positions'][bool_backbone]
@@ -291,7 +305,8 @@ def find_channel_atoms(channel, protein_dict, filter_set):
         acidic_residues = np.array(['ASP', 'GLU'])
         basic_residues = np.array(['LYS', 'ARG', 'HIS'])
         polar_residues = np.array(['GLN', 'ASN', 'HIS', 'SER', 'THR', 'TYR', 'CYS'])
-        nonpolar_residues = np.array(['GLY', 'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PRO', 'PHE', 'TRP'])
+        nonpolar_residues = np.array(['GLY', 'ALA', 'VAL', 'LEU', \
+                                        'ILE', 'MET', 'PRO', 'PHE', 'TRP'])
         amphipathic_residues = np.array(['TRP', 'TYR', 'MET'])
         charged_residues = np.array(['ARG', 'LYS', 'ASP', 'GLU'])
         # custom_residues = something
