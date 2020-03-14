@@ -9,19 +9,17 @@ import cnns4qspr.loader as loader
 class test_loader(unittest.TestCase):
 
 
-
     def test_load_pdb(self):
         """
         This is for testing the load_pdb function.
         """
-        self.path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
-        self.protein_dict = loader.load_pdb(self.path)
-        self.num_bins = 50
-        self.bin_size = 2
-        dict_protein = loader.load_pdb(self.path)
+        path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        protein_dict = loader.load_pdb(path)
+        dict_protein = loader.load_pdb(path)
         self.assertTrue(dict_protein['positions'][0][0]==dict_protein['x_coords'][0])
         self.assertTrue(len(dict_protein['atom_types'])>len(dict_protein['atom_type_set']))
         return dict_protein
+
 
     def test_shift_coords(self):
         """
@@ -35,6 +33,7 @@ class test_loader(unittest.TestCase):
         new_pos = loader.shift_coords(self.protein_dict)
         self.assertTrue(new_pos['shifted_positions'].mean() < self.protein_dict['positions'].mean())
         return new_pos
+
 
     def test_voxelize(self):
         """
@@ -56,7 +55,7 @@ class test_loader(unittest.TestCase):
         # is the same in various ways
         self.assertEqual(len(fields1['CA']), len(fields2['CA']))
         self.assertEqual(len(fields1['CA'][0][0]), len(fields2['CA'][0][0]))
-        self.assertEqual(fields1.shape, fields2.shape)
+        self.assertEqual(fields1['CA'].shape, fields2['CA'].shape)
 
 
     def test_grid_positions(self):
@@ -77,7 +76,7 @@ class test_loader(unittest.TestCase):
         self.assertTrue(grid_out[0].shape == torch.Size([50, 50, 50]))
         self.assertTrue(grid_out[1].shape == torch.Size([50, 50, 50]))
         self.assertTrue(grid_out[2].shape == torch.Size([50, 50, 50]))
-        return grid_out
+
 
     def test_make_fields(self):
         """
@@ -91,7 +90,6 @@ class test_loader(unittest.TestCase):
         self.assertTrue(output_fields['CA'].shape == torch.Size([1, 1, 50, 50, 50]))
         self.assertTrue(output_fields['CA'].dtype == torch.float32)
 
-        return output_fields
 
     def test_check_channel(self):
         """
@@ -120,7 +118,7 @@ class test_loader(unittest.TestCase):
         This method tests the find_channel_atoms function
         """
         # sets of allowed filters to build channels with
-        path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        path = 'cnns4qspr/formatting_data/sample_pdbs/6fww.pdb'
         protein_dict = loader.load_pdb(path)
         residue_filters = protein_dict['residue_set']
         atom_filters    = protein_dict['atom_type_set']
@@ -131,8 +129,20 @@ class test_loader(unittest.TestCase):
         filter_set = {'atom':atom_filters, 'residue':residue_filters,\
                       'residue_property':residue_property_filters, 'other':other_filters}
 
-        # test 1: test that the return type of find channel atoms is np.array([])
+        # test 1: assert that fin_channel_atoms is constructing the channels for all of these
+        # residues correctly
+        for residue in ['LYS', 'MET', 'VAL', 'PRO', 'ALA', 'SER', 'LEU', 'ILE', 'ARG', 'ASP']:
+            true_res_atoms = protein_dict['shifted_positions'][protein_dict['residues'] == residue]
+            test_res_atoms = loader.find_channel_atoms(residue, protein_dict, filter_set)
+            print('Residue is',residue)
+            print('True and test is')
+            print(true_res_atoms, test_res_atoms)
+            self.assertEqual(true_res_atoms.all(), test_res_atoms.all())
 
+    def test_atoms_from_residues(self):
+        """
+        This method tests the atoms_from_residues function
+        """
 
 
     if __name__ == '__main__':
