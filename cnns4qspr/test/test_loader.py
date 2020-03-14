@@ -55,7 +55,7 @@ class test_loader(unittest.TestCase):
         # check that the output of voxelizer, and the output of load_pdb >> make_fields
         # is the same in various ways
         self.assertEqual(len(fields1['CA']), len(fields2['CA']))
-        self.assertEqual(len(fields1['CA'][0][0], len(fields2['CA'][0][0])))
+        self.assertEqual(len(fields1['CA'][0][0]), len(fields2['CA'][0][0]))
         self.assertEqual(fields1.shape, fields2.shape)
 
 
@@ -90,6 +90,7 @@ class test_loader(unittest.TestCase):
         output_fields = loader.make_fields(self.protein_dict)
         self.assertTrue(output_fields['CA'].shape == torch.Size([1, 1, 50, 50, 50]))
         self.assertTrue(output_fields['CA'].dtype == torch.float32)
+
         return output_fields
 
     def test_check_channel(self):
@@ -131,7 +132,8 @@ class test_loader(unittest.TestCase):
                       'residue_property':residue_property_filters, 'other':other_filters}
 
         # test 1: test that the return type of find channel atoms is np.array([])
-        self.assertTrue(True)
+
+
 
     if __name__ == '__main__':
         unittest.main()
