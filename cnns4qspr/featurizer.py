@@ -1,7 +1,7 @@
 import os
 import sys
+# import importlib
 import torch
-import importlib
 import numpy as np
 import pkg_resources
 from cnns4qspr.loader import voxelize
@@ -67,18 +67,37 @@ def featurize(field, channels='all'):
 
     return feature_vec
 
-def gen_feature_set(pdb_path, channels=['CA'], save=False, save_fn='feature_set.npy', save_path='./'):
+def gen_feature_set(pdb_path, channels=['CA'], save=False, \
+                    save_fn='feature_set.npy', save_path='./'):
+    """
+    This function takes a directory of pdbs and either saves them or
+    returns an nx256 np array where n is number of pdbs.
+
+    Parameters:
+    ___________
+    pdb_path (path, required): path of the pdb file
+
+    channels (list-like, optional): for the specific channels we want
+        the arrays for.
+
+    Returns:
+    ___________
+    feature_set ( numpy array): returns the array of nx256 where n is
+        the number of pdbs.
+    """
+
     pdb_fns = os.listdir(pdb_path)
     feature_set = np.zeros((len(channels), len(pdb_fns), 256))
 
     for j, pdb_fn in enumerate(pdb_fns):
-        progress = '{}/{} pdbs voxelized ({}%)'.format(j, len(pdb_fns), round(j / len(pdb_fns) * 100, 2))
+        progress = '{}/{} pdbs voxelized ({}%)'.format(j, len(pdb_fns), \
+                    round(j / len(pdb_fns) * 100, 2))
         sys.stdout.write('\r'+progress)
         path = os.path.join(pdb_path, pdb_fn)
         field = voxelize(path, channels=channels)
         features = featurize(field)
         for i, channel in enumerate(channels):
-            feature_set[i,j,:] = features[channel]
+            feature_set[i, j, :] = features[channel]
 
     sys.stdout.write("\r\033[K")
     out_statement = 'voxelization complete!\n'
