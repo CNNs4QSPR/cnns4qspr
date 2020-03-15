@@ -8,28 +8,39 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 
+
 def outer_block1_hook(module, input_, output):
     global outer_block1_out
     outer_block1_out = output
+
 
 def outer_block2_hook(module, input_, output):
     global outer_block2_out
     outer_block2_out = output
 
+
 def outer_block3_hook(module, input_, output):
     global outer_block3_out
     outer_block3_out = output
 
+
 def outer_block4_hook(module, input_, output):
     global outer_block4_out
     outer_block4_out = output
+
 
 def outer_block5_hook(module, input_, output):
     global outer_block5_out
     outer_block5_out = output
 
 
-def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0.7, show=True):
+def plot_field(
+        field,
+        color='ice_r',
+        from_voxelizer=True,
+        threshold=0.2,
+        alpha=0.7,
+        show=True):
     """
     This function takes a field datacube from voxelizer and plots a heat map of
     the 50x50x50 field. The field describes an atomic "denisty" at each voxel.
@@ -51,19 +62,19 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0
     cube /= cube.max()
 
     cubelist = []
-    x = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
-    y = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
-    z = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
+    xval = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
+    yval = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
+    zval = np.linspace(-len(cube[0]) + 1, len(cube[0]) - 1, 50)
 
     # make a dataframe of x,y,z,intensity for each point in the cube
     # to do this have to loop through the cube
-    for i, x2 in enumerate(x):
+    for i, xval2 in enumerate(xval):
 
-        for j, y2 in enumerate(y):
+        for j, yval2 in enumerate(yval):
 
-            for k, z2 in enumerate(z):
+            for k, zval2 in enumerate(zval):
 
-                cubelist.append([x2, y2, z2, cube[i][j][k]])
+                cubelist.append([xval2, yval2, zval2, cube[i][j][k]])
 
     cube_df = pd.DataFrame(cubelist, columns=['x', 'y', 'z', 'intensity'])
 
@@ -74,18 +85,27 @@ def plot_field(field, color='ice_r', from_voxelizer=True, threshold=0.2, alpha=0
                         color='intensity', opacity=alpha,
                         color_continuous_scale=color)
     fig.update_layout(
-        scene = dict(
-            xaxis = dict(range=[-25, 25]),
-            yaxis = dict(range=[-25, 25]),
-            zaxis = dict(range=[-25, 25])
+        scene=dict(
+            xaxis=dict(range=[-25, 25]),
+            yaxis=dict(range=[-25, 25]),
+            zaxis=dict(range=[-25, 25])
         )
     )
     if show:
         fig.show()
+        figret = None
     else:
-        return fig
+        figret = fig
+    return figret
 
-def plot_internals(model, field, block=0, channel=0, threshold_on=True):
+
+def plot_internals(
+        model,
+        field,
+        block=0,
+        channel=0,
+        threshold_on=True,
+        feature_on=False):
     """
     This function enables visualization of the output of various convolutional
     layers inside the model.
@@ -98,17 +118,22 @@ def plot_internals(model, field, block=0, channel=0, threshold_on=True):
     model.blocks[4].register_forward_hook(outer_block5_hook)
     model.eval()
 
-    x = torch.autograd.Variable(field)
-    feature_vec = model(x)
+    xval = torch.autograd.Variable(field)
+    feature_vec = model(xval)
     blocks = [outer_block1_out,
               outer_block2_out,
               outer_block3_out,
               outer_block4_out,
               outer_block5_out]
 
-    internal_field = blocks[block][:,channel, :, :, :].detach()
+    internal_field = blocks[block][:, channel, :, :, :].detach()
     if threshold_on:
         fig = plot_field(internal_field, show=False)
     else:
         fig = plot_field(internal_field, threshold=0.0001, show=False)
     fig.show()
+    if feature_on:
+        feature = feature_vec
+    else:
+        feature = None
+    return feature
