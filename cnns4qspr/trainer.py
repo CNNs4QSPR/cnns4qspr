@@ -202,10 +202,6 @@ class Trainer():
                     vae_l = 0
                     vae_losses.append(vae_l)
                     mu = np.zeros((prediction.shape[0], self.latent_size))
-                # print('---PREDICTION---')
-                # print(prediction)
-                # print('---TARGET---')
-                # print(label)
 
                 if self.type == 'classifier':
                     pred_l = classifier_loss(label, prediction)

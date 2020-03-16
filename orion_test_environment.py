@@ -9,11 +9,16 @@ from cnns4qspr.trainer import Trainer
 import os
 from Bio.PDB import *
 
-mutant_asa = pd.read_csv('../se3_data/protherm/mutant_asa.csv')
-pdb_id = list(mutant_asa['PDB_mutant'])
+wild_tm = pd.read_csv('../se3_data/protherm/wild_tm.csv')
+pdb_id = list(wild_tm['PDB_wild'])
 pdb_id = [x.split(',')[0] if ',' in x else x for x in pdb_id]
-asa = list(mutant_asa['ASA'])
-asa = [float(x) for x in asa]
+tm = []
+for t in list(wild_tm['Tm']):
+    try:
+        tm.append(float(t))
+    except ValueError:
+        t = t.split(' ')
+        tm.append(float(t[0]))
 
 seen_ids = []
 good_idxs = []
@@ -25,25 +30,24 @@ for i, id in enumerate(pdb_id):
         good_idxs.append(i)
 
 pdb_id = np.array(pdb_id)[good_idxs]
-asa = np.array(asa)[good_idxs]
+tm = np.array(tm)[good_idxs]
 
 # Download pdbs
 # pdbl = PDBList()
 # for i, id in enumerate(pdb_id):
 #     print(i)
-#     pdbl.retrieve_pdb_file(id, pdir='../se3_data/protherm/pdbs', file_format='pdb')
-# gen_feature_set('../se3_data/protherm/pdbs', save=True, save_fn='mutant_asa_features.npy', save_path='../se3_data/protherm/')
+#     pdbl.retrieve_pdb_file(id, pdir='../se3_data/protherm/tm_pdbs', file_format='pdb')
+# gen_feature_set('../se3_data/protherm/tm_pdbs', save=True, save_fn='wild_tm_features.npy', save_path='../se3_data/protherm/')
 
-asa = list(asa)
-asa.pop(125)
-asa = np.array(asa).reshape(-1,1)
-features = np.load('../se3_data/protherm/mutant_asa_features.npy')
+tm = list(tm)
+pop_idxs = [374,341,294,263,259,242,237,126,24]
+for idx in pop_idxs:
+    tm.pop(idx)
+tm = np.array(tm).reshape(-1,1)
+features = np.load('../se3_data/protherm/wild_tm_features.npy')
 
 vae = Trainer(type='regressor', network_type='feedforward', predictor=[128,128,128,64,28,10])
-vae.train(features, asa, 100, 10, learning_rate=1e-4)
-# predictions = vae.predict(features[:10,:])
-# print(predictions)
-
+vae.train(features, tm, 1000, 10, learning_rate=0.01)#, verbose=False)
 
 
 ### Create input tensor
