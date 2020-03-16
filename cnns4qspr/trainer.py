@@ -481,5 +481,16 @@ class Trainer():
         self.network = self.network.double()
         self.network.eval()
         input = torch.autograd.Variable(torch.from_numpy(data))
-        output, mu, logvar, prediction = self.network(input)
-        return prediction.data.cpu().numpy()
+        if self.type == 'classifier':
+            if self.network_type == 'vae':
+                output, mu, logvar, prediction = self.network(input)
+            elif self.network_type == 'feedforward':
+                prediction = self.network(input)
+            _, prediction = torch.max(prediction, 1)
+            return prediction.data.cpu().numpy()
+        elif self.type == 'regressor':
+            if self.network_type == 'vae':
+                output, mu, logvar, prediction = self.network(input)
+            elif self.network_type == 'feedforward':
+                prediction = self.network(input)
+            return prediction.data.cpu().numpy()

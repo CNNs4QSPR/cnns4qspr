@@ -157,7 +157,7 @@ def plot_internals(
               outer_block4_out,
               outer_block5_out]
 
-    internal_field = blocks[block][:, channel, :, :, :].detach()
+    internal_field = blocks[block][:, channel, :, :, :].detach().view(1,1,50,50,50)
     if threshold_on:
         fig = plot_field(internal_field, show=False)
     else:
