@@ -20,7 +20,7 @@ def load_pdb(path):
         path (str, required): The full path to the pdb file being voxelized.
 
     Returns:
-        dictioanry: A dictionary containing the following arrays from
+        dictionary: A dictionary containing the following arrays from
             the pdb file: num_atoms, atom_types, positions, atom_type_set,
             xcoords, ycoords, zcoords, residues, residue_set
     """

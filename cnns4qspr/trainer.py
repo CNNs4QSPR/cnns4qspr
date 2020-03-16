@@ -1,15 +1,92 @@
+"""
+This module contains a Trainer class for quickly and easily building
+VAE or FeedForward property predictors from the extraced structural protein
+features.
+"""
+
 import os
 import sys
 import torch
-# import torch.nn as nn
 import torch.utils.data
 import torch.optim as optim
-# import torch.nn.functional as F
 import numpy as np
 from cnns4qspr.se3cnn_v3.util.arch_blocks import VAE, FeedForward
 from cnns4qspr.se3cnn_v3.util.losses import vae_loss, classifier_loss, regressor_loss
 
 class Trainer():
+    """
+    Loads VAE or FeedForward pytorch network classes and allows the user
+    to quickly define its architecture and train. This class has pre-defined
+    options for both classifier and regressor model types. If classifier is
+    chosen, the output size must match the number of labels being trained on.
+
+    Trained models can be saved as .ckpt files which can later be loaded for
+    further model evaluation and/or training.
+
+    Parameters:
+        type (str): The target of the neural network (classifier or regressor)
+
+        network_type (str): The type of neural network (vae or feedforward)
+
+        output_size (int): Number of output nodes (defaults to 1 if regressor)
+
+        input_size (int): The number of input nodes (defaults to 256,
+            the size of the featurized protein vectors)
+
+        latent_size (int): The number of latent nodes in VAE
+
+        encoder (list): A list of hidden layer sizes for encoder network
+
+        decoder (list): A list of hidden layer sizes for decoder network
+
+        predictor (list): A list of hidden layer sizes for predictor network
+            (*note* if network_type is vae then predictor is appended to the
+            latent space, if network_type is feedforward then predictor takes
+            the structural feature vector as input)
+
+    Attributes:
+        type (str): The target of the neural network (classifier or regressor)
+
+        network_type (str): The type of neural network (vae or feedforward)
+
+        latent_size (int): The number of latent nodes in VAE
+
+        network (pytorch Module): Instantiation of VAE or FeedForward pytorch
+            network class
+
+        architecture (dict): Dictionary containing the size and number of all
+            neural net layers
+
+        current_state (dict): Dictionary containing the most recent values
+            of neural net parameters (weights, biases, optimizer history,
+            epoch #)
+
+        checkpoint (dict): Dictionary containing the saved values of the
+            neural net parameters at the networks' best validation
+            performance (user defines based on accuracy or loss)
+
+        load_state (bool): Indicates whether a previous model has been loaded
+
+        total_losses (dict): Saved series of the total loss during both training
+            and validation
+
+        vae_losses (dict): Saved series of the VAE loss during both training
+            and validation
+
+        predictor_losses (dict): Saved series of the predictor loss during both
+            training and validation
+
+        accuracies (dict): Saved series of predictor accuracies during both
+            training and validation
+
+        latent_means (dict): Saved series of latent space mean values during
+            both training and validation
+
+        label_history (dict): Saved series of label values during both
+            training and validation
+
+        n_epochs (int): Number of epochs the model has been trained for
+    """
     def __init__(self,
                  type='classifier',
                  network_type='vae',
@@ -66,6 +143,15 @@ class Trainer():
         self.n_epochs = 0
 
     def save(self, mode='best', path='./', fn='default'):
+        """
+        Saves the model to .ckpt file. Mode can be chosen to save either the
+        best performing model or the most recent state of the model.
+
+        Parameters:
+            mode (str): Indicates which model to save (best or current)
+            path (str): Path to directory where model will be stored
+            fn (str): Filename of saved model
+        """
         if fn == 'default':
             fn = '{}_vae.ckpt'.format(mode)
 
@@ -87,6 +173,13 @@ class Trainer():
                         os.path.join(path, fn))
 
     def load(self, checkpoint_path):
+        """
+        Loads model from saved .ckpt checkpoint state.
+
+        Parameters:
+            checkpoint_path (str): Path to checkpoint file (must include
+                .ckpt filename)
+        """
         loaded_checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
         for key in self.checkpoint.keys():
             self.checkpoint[key] = loaded_checkpoint[key]
@@ -95,12 +188,9 @@ class Trainer():
                            type=type,
                            n_output=architecture['output_size'],
                            input_size=architecture['input_size'],
-                           encoder_depth=architecture['encoder_depth'],
-                           encoder_size=architecture['encoder_size'],
-                           decoder_depth=architecture['decoder_depth'],
-                           decoder_size=architecture['decoder_size'],
-                           predictor_depth=architecture['predictor_depth'],
-                           predictor_size=architecture['predictor_size'])
+                           encoder=architecture['encoder'],
+                           decoder=architecture['decoder'],
+                           predictor=architecture['predictor'])
         self.load_state = True
 
     def train(self,
@@ -114,6 +204,38 @@ class Trainer():
               store_best=True,
               criterion='acc',
               verbose=True):
+        """
+        Trains model. Feature data and labels (or targets) must be input
+        separately. By default, 20% of training data is used for model
+        validation and the Adam optimizer is used with a learning rate of
+        1e-4. Data and model states are stored as Trainer attributes (defined
+        during instantiation).
+
+        Parameters:
+            data (np.array): nxm feature matrix where n = # of samples and
+                m = # of features
+
+            labels (np.array): nx1 target matrix where n = # of samples. Only
+                one target can be trained on at a time
+
+            n_epochs (int): Number of epochs to train the model
+
+            batch_size (int): Size of training and validation batches
+
+            val_split (float): Fraction of data to be used for model validation
+
+            optimizer (torch.optim): Model optimizer. Must be a pytorch
+                optimizer object
+
+            learning_rate (float): Learning rate of optimizer
+
+            store_best (bool): Checks model performance and stores as an
+                attribute if improved
+
+            criterion (str): Criterion for model improvement (acc or loss)
+
+            verbose (bool): Prints progress bar and metrics during training
+        """
         if self.type == 'regressor':
             criterion = 'loss'
         self.n_samples = data.shape[0]
@@ -190,7 +312,10 @@ class Trainer():
                 if self.use_gpu:
                     data = data.cuda()
                 input = torch.autograd.Variable(data[:, :-1])
-                label = torch.autograd.Variable(data[:, -1])
+                if self.type == 'classifier':
+                    label = torch.autograd.Variable(data[:, -1]).long()
+                elif self.type == 'regressor':
+                    label = torch.autograd.Variable(data[:, -1])
 
                 ### Forward and backward propagation
                 if self.network_type == 'vae':
@@ -261,7 +386,10 @@ class Trainer():
                 if self.use_gpu:
                     data = data.cuda()
                 input = torch.autograd.Variable(data[:, :-1])
-                label = torch.autograd.Variable(data[:, -1])
+                if self.type == 'classifier':
+                    label = torch.autograd.Variable(data[:, -1]).long()
+                elif self.type == 'regressor':
+                    label = torch.autograd.Variable(data[:, -1])
 
                 ### Forward propagation
                 if self.network_type == 'vae':
@@ -310,7 +438,6 @@ class Trainer():
 
             if store_best:
                 if criterion == 'acc':
-                    print(avg_val_acc, self.checkpoint['best_accuracy'])
                     if avg_val_acc > self.checkpoint['best_accuracy']:
                         self.checkpoint['state_dict'] = self.network.state_dict()
                         self.checkpoint['optimizer'] = self.optimizer.state_dict()
@@ -341,7 +468,18 @@ class Trainer():
         self.label_history['val'] = label_history_val
 
     def predict(self, data):
+        """
+        Predicts output given a set of input data for a fully trained model.
+
+        Parameters:
+            data (np.array): nxm feature matrix where n = # of samples and
+                m = # of features
+
+        Returns:
+            prediction (np.array): nx1 prediction matrix where n = # of samples
+        """
+        self.network = self.network.double()
         self.network.eval()
         input = torch.autograd.Variable(torch.from_numpy(data))
         output, mu, logvar, prediction = self.network(input)
-        return prediction
+        return prediction.data.cpu().numpy()
