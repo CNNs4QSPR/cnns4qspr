@@ -21,7 +21,7 @@ class test_featurizer(unittest.TestCase):
         """
         This method tests the featurizer method
         """
-        path = 'cnns4qspr/formatting_data/sample_pdbs/6fww.pdb'
+        path = 'examples/sample_pdbs/6fww.pdb'
         fields = loader.voxelize(path, channels=['LYS'])
         features = featurizer.featurize(fields)
 
@@ -38,7 +38,7 @@ class test_featurizer(unittest.TestCase):
         """
         This method tests the gen_feature_set function
         """
-        
+
 
     if __name__ == '__main__':
         unittest.main()

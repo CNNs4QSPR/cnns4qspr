@@ -13,7 +13,7 @@ class test_loader(unittest.TestCase):
         """
         This is for testing the load_pdb function.
         """
-        path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
+        path = 'examples/sample_pdbs/1a00B00'
         dict_protein = loader.load_pdb(path)
         self.assertTrue(dict_protein['positions'][0][0]==dict_protein['x_coords'][0])
         self.assertTrue(len(dict_protein['atom_types'])>len(dict_protein['atom_type_set']))
@@ -25,7 +25,7 @@ class test_loader(unittest.TestCase):
         This is for testing the shift_coords function.
         """
         # protein_dict = loader.load_pdb(path)
-        self.path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
+        self.path = 'examples/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -39,7 +39,7 @@ class test_loader(unittest.TestCase):
         This unit test is for testing the voxelize funtion.
         """
         # protein_dict = loader.load_pdb(self.path)
-        path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
+        path = 'examples/sample_pdbs/1a00B00'
         num_bins = 50
         bin_size = 2
         protein_dict = loader.load_pdb(path)
@@ -61,7 +61,7 @@ class test_loader(unittest.TestCase):
         """
         This unit test is for testing the grid_positions function.
         """
-        self.path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
+        self.path = 'examples/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -81,7 +81,7 @@ class test_loader(unittest.TestCase):
         """
         This is for testing the make_fields function.
         """
-        self.path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
+        self.path = 'examples/sample_pdbs/1a00B00'
         self.protein_dict = loader.load_pdb(self.path)
         self.num_bins = 50
         self.bin_size = 2
@@ -95,7 +95,7 @@ class test_loader(unittest.TestCase):
         This function tests the check_channel() function
         """
         # sets of allowed filters to build channels with
-        path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
+        path = 'examples/sample_pdbs/1a00B00'
         protein_dict = loader.load_pdb(path)
         residue_filters = protein_dict['residue_set']
         atom_filters    = protein_dict['atom_type_set']
@@ -117,7 +117,7 @@ class test_loader(unittest.TestCase):
         This method tests the find_channel_atoms function
         """
         # sets of allowed filters to build channels with
-        path = 'cnns4qspr/examples/sample_pdbs/6fww.pdb'
+        path = 'examples/sample_pdbs/6fww.pdb'
         protein_dict = loader.load_pdb(path)
         residue_filters = protein_dict['residue_set']
         atom_filters    = protein_dict['atom_type_set']
@@ -139,7 +139,7 @@ class test_loader(unittest.TestCase):
         """
         This method tests the atoms_from_residues function
         """
-        path = 'cnns4qspr/examples/sample_pdbs/6fww.pdb'
+        path = 'examples/sample_pdbs/6fww.pdb'
         protein_dict = loader.load_pdb(path)
         residue_filters = protein_dict['residue_set']
         atom_filters    = protein_dict['atom_type_set']
