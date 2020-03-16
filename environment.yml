@@ -1,0 +1,10 @@
+name: cnn4qspr
+channels:
+  - conda-forge
+  - anaconda-fusion
+  - defaults
+dependencies:
+  - biopandas=0.2.4=py_0
+  - torch
+prefix: /anaconda3/envs/cnn4qspr
+

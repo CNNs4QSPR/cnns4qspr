@@ -11,21 +11,18 @@ from biopandas.pdb import PandasPdb
 
 def load_pdb(path):
     """
-    This function will load all of the atomic positioning/type arrays
-    from a pdb file. This arrays can then be transformed into
-    density (or "field") tensors before being sent through the neural
-    network.
+    Loads all of the atomic positioning/type arrays from a pdb file.
+
+    The arrays can then be transformed into density (or "field") tensors before
+        being sent through the neural network.
 
     Parameters:
-    ___________
-
-    path (str, required): The full path to the pdb file being voxelized.
+        path (str, required): The full path to the pdb file being voxelized.
 
     Returns:
-    ________
-
-    protein_dict (dict): A dictionary containing the following arrays from
-        the pdb file: n_atoms, atom_types, positions, atom_type_set, ...
+        dictioanry: A dictionary containing the following arrays from
+            the pdb file: num_atoms, atom_types, positions, atom_type_set,
+            xcoords, ycoords, zcoords, residues, residue_set
     """
 
     pdb = PandasPdb().read_pdb(path)
@@ -76,12 +73,11 @@ def shift_coords(protein_dict):
     of the field tensor.
 
     Parameters:
-    ___________
-    protein_dict (dict): A dictionary of information from the first part of the load_pdb function.
+        protein_dict (dict): A dictionary of information from the first part of the load_pdb function.
 
     Returns:
-    ________
-    protein_dict (dict): Just the original protein dict but with an added value,
+        dictionary: The original protein dict but with an added value containing
+            the coordinates of the protein shifted to the origin.
     """
     # find the extreme x, y, and z values that exist in the protein atomic coordinates
     x_extremes = np.array([protein_dict['x_coords'].min(), protein_dict['x_coords'].max()])
@@ -97,40 +93,51 @@ def shift_coords(protein_dict):
     return protein_dict
 
 def grid_positions(grid_array):
-    xx = grid_array.view(-1, 1, 1).repeat(1, len(grid_array), len(grid_array))
-    yy = grid_array.view(1, -1, 1).repeat(len(grid_array), 1, len(grid_array))
-    zz = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
-    return (xx, yy, zz)
+    """
+    This function returns the 3D meshgrids of x, y and z positions.
+    These cubes will be flattened, then used as a reference coordinate system
+    to place the actual channel densities into.
+
+    Parameters:
+        grid_positions (pytorch tensor): lineraly spaced grid
+
+    Returns:
+        array: meshgrid array of the x, y and z positions.
+    """
+    xgrid = grid_array.view(-1, 1, 1).repeat(1, len(grid_array), len(grid_array))
+    ygrid = grid_array.view(1, -1, 1).repeat(len(grid_array), 1, len(grid_array))
+    zgrid = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
+    return (xgrid, ygrid, zgrid)
 
 def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     """
     This function takes a protein dict (from load_pdb function) and outputs a
-    large tensor containing many atomic "fields" for the protein. The fields
-    describe the atomic "density" (an exponentially decaying function
-    of number of atoms in a voxel) of any particular atom type.
+        large tensor containing many atomic "fields" for the protein.
+
+    The fields describe the atomic "density" (an exponentially decaying function
+        of number of atoms in a voxel) of any particular atom type.
 
     Parameters:
-    ___________
-    protein_dict (dict, requred): dictionary from the load_pdb function
-    channels (list-like, optional): the different atomic densities we want fields for
-        theoretically these different fields provide different chemical information
-        full list of available channels is in protein_dict['atom_type_set']
+        protein_dict (dict, requred): dictionary from the load_pdb function
 
-    bin_size (float, optional): the side-length (angstrom) of a given voxel in the box
-        that atomic densities are placed in
+        channels (list-like, optional): the different atomic densities we want fields for
+            theoretically these different fields provide different chemical information
+            full list of available channels is in protein_dict['atom_type_set']
 
-    num_bins (int, optional): how big is the cubic field tensor side length
-        (i.e., num_bins is box side length)
+        bin_size (float, optional): the side-length (angstrom) of a given voxel in the box
+            that atomic densities are placed in
+
+        num_bins (int, optional): how big is the cubic field tensor side length
+            (i.e., num_bins is box side length)
 
 
     Returns:
-    ________
-    fields (numpy array or pytorch tensor): A list of atomic density tensors
-        (50x50x50), one for each channel in channels
+        dictionary: A list of atomic density tensors (50x50x50), one for each
+            channel in channels
     """
     # sets of allowed filters to build channels with
     residue_filters = protein_dict['residue_set']
-    atom_filters    = protein_dict['atom_type_set']
+    atom_filters = protein_dict['atom_type_set']
     residue_property_filters = np.array(['acidic', 'basic', 'polar', 'nonpolar',\
                                          'charged', 'amphipathic'])
     other_filters = np.array(['backbone', 'sidechains'])
@@ -152,7 +159,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
     # This makes three 3D meshgrids in for the x, y, and z positions
     # These cubes will be flattened, then used as a reference coordinate system
     # to place the actual channel densities into
-    xx, yy, zz = grid_positions(grid_1d)
+    xgrid, ygrid, zgrid = grid_positions(grid_1d)
 
     for channel_index, channel in enumerate(channels):
 
@@ -162,7 +169,8 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         if channel_allowed:
             pass
         else:
-            #err_string = 'Allowed channels are: in a protein\'s atom_type_set, residue_set',or the \'sidechains\' and \'backbone\' channels.'
+            #err_string = 'Allowed channels are: in a protein\'s atom_type_set,
+                        # residue_set',or the \'sidechains\' and \'backbone\' channels.'
             raise ValueError('The channel ', channel, ' is not allowed for this protein.')
 
 
@@ -171,20 +179,20 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         # print('This is channel ', channel)
         atom_positions = torch.FloatTensor(atom_positions)
 
-        # xx.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
+        # xgrid.view(-1, 1) is 125,000 long, because it's viewing a 50x50x50 cube in one column
         # then you repeat that column horizontally for each atom
-        xx_xx = xx.view(-1, 1).repeat(1, len(atom_positions))
-        yy_yy = yy.view(-1, 1).repeat(1, len(atom_positions))
-        zz_zz = zz.view(-1, 1).repeat(1, len(atom_positions))
+        xx_xx = xgrid.view(-1, 1).repeat(1, len(atom_positions))
+        yy_yy = ygrid.view(-1, 1).repeat(1, len(atom_positions))
+        zz_zz = zgrid.view(-1, 1).repeat(1, len(atom_positions))
         # at this point we've created 3 arrays that are 125,000 long
         # and as wide as the number of atoms that are the current channel type
         # these 3 arrays just contain the flattened x,y,z positions of our 50x50x50 box
 
 
         # now do the same thing as above, just with the ACTUAL atomic position data
-        posx_posx = atom_positions[:, 0].contiguous().view(1, -1).repeat(len(xx.view(-1)), 1)
-        posy_posy = atom_positions[:, 1].contiguous().view(1, -1).repeat(len(yy.view(-1)), 1)
-        posz_posz = atom_positions[:, 2].contiguous().view(1, -1).repeat(len(zz.view(-1)), 1)
+        posx_posx = atom_positions[:, 0].contiguous().view(1, -1).repeat(len(xgrid.view(-1)), 1)
+        posy_posy = atom_positions[:, 1].contiguous().view(1, -1).repeat(len(ygrid.view(-1)), 1)
+        posz_posz = atom_positions[:, 2].contiguous().view(1, -1).repeat(len(zgrid.view(-1)), 1)
         # three tensors of the same size, with actual atomic coordinates
 
         # normalizes the atomic positions with respect to the center of the box
@@ -198,7 +206,7 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         density /= torch.sum(density, dim=0)
 
         # Sum densities and reshape to original shape
-        sum_densities = torch.sum(density, dim=1).view(xx.shape)
+        sum_densities = torch.sum(density, dim=1).view(xgrid.shape)
 
         # set all nans to 0
         sum_densities[sum_densities != sum_densities] = 0
@@ -216,15 +224,15 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
 def check_channel(channel, filter_set):
     """
     This function checks to see if a channel the user is asking to make a field
-    for is an allowed channel to ask for.
+        for is an allowed channel to ask for.
 
     Parameters:
-    ___________
-    channel (str, required): The atomic channel being requested
+        channel (str, required): The atomic channel being requested
 
-    filter_set (dict, required): The set of defined atomic filters
+        filter_set (dict, required): The set of defined atomic filters
 
-    Returns: channel_allowed (bool): Boolean indicating whether the channel is allowed
+    Returns:
+        boolean: indicator for if the channel is allowed
     """
     channel_allowed = False
     for key in filter_set:
@@ -236,17 +244,21 @@ def check_channel(channel, filter_set):
 def find_channel_atoms(channel, protein_dict, filter_set):
     """
     This function finds the coordinates of all relevant atoms in a channel.
+
     It uses the filter set to constrcut the atomic channel (i.e., a channel can
-    be composed of multiple filters).
+        be composed of multiple filters).
 
     Parameters:
-    ___________
-    channel (str, required): The atomic channel being constructed
+        channel (str, required): The atomic channel being constructed
 
-    protein_dict (dict, required): The dictionary of the protein, returned from
-        load_pdb()
+        protein_dict (dict, required): The dictionary of the protein, returned from
+            load_pdb()
 
-    filter_set (dict, required): The set of available filters to construct channels with
+        filter_set (dict, required): The set of available filters to construct channels with
+
+    Returns:
+        numpy array:  array containing the coordinates of each atom that is relevant
+            to the channel
     """
     if channel in filter_set['atom']:
         atom_positions = protein_dict['shifted_positions'][protein_dict['atom_types'] == channel]
@@ -257,13 +269,13 @@ def find_channel_atoms(channel, protein_dict, filter_set):
     elif channel in filter_set['other']: # backbone or sidechain
         if channel == 'backbone':
             # create boolean arrays for backbone atoms
-            bool_O = protein_dict['atom_types'] == 'O'
-            bool_C = protein_dict['atom_types'] == 'C'
-            bool_CA = protein_dict['atom_types'] == 'CA'
-            bool_N = protein_dict['atom_types'] == 'N'
+            bool_oxygen = protein_dict['atom_types'] == 'O'
+            bool_carbon = protein_dict['atom_types'] == 'C'
+            bool_alphacarbon = protein_dict['atom_types'] == 'CA'
+            bool_nitrogen = protein_dict['atom_types'] == 'N'
 
             # sum of all the backbone channels into one boolean array
-            bool_backbone = bool_O + bool_C + bool_CA + bool_N
+            bool_backbone = bool_oxygen + bool_carbon + bool_alphacarbon + bool_nitrogen
 
             # select the backbone atoms
             atom_positions = protein_dict['shifted_positions'][bool_backbone]
@@ -291,13 +303,14 @@ def find_channel_atoms(channel, protein_dict, filter_set):
         acidic_residues = np.array(['ASP', 'GLU'])
         basic_residues = np.array(['LYS', 'ARG', 'HIS'])
         polar_residues = np.array(['GLN', 'ASN', 'HIS', 'SER', 'THR', 'TYR', 'CYS'])
-        nonpolar_residues = np.array(['GLY', 'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PRO', 'PHE', 'TRP'])
+        nonpolar_residues = np.array(['GLY', 'ALA', 'VAL', 'LEU', \
+                                        'ILE', 'MET', 'PRO', 'PHE', 'TRP'])
         amphipathic_residues = np.array(['TRP', 'TYR', 'MET'])
         charged_residues = np.array(['ARG', 'LYS', 'ASP', 'GLU'])
         # custom_residues = something
         property_dict = {'acidic':acidic_residues, 'basic':basic_residues,\
-                             'polar':polar_residues, 'nonpolar':nonpolar_residues,\
-                             'amphipathic':amphipathic_residues, 'charged':charged_residues}
+                         'polar':polar_residues, 'nonpolar':nonpolar_residues,\
+                         'amphipathic':amphipathic_residues, 'charged':charged_residues}
 
         atom_positions = atoms_from_residues(protein_dict, property_dict[channel])
 
@@ -309,14 +322,12 @@ def atoms_from_residues(protein_dict, residue_list):
     in a list of residues.
 
     Parameters:
-    ___________
-    protein_dict (dict, required): The dictionary of the protein, returned from
-        load_pdb()
+        protein_dict (dict, required): The dictionary of the protein, returned from
+            load_pdb()
 
-    residue_list (list-like, required): The list of residues whose atoms we are
-        finding coordinates for
+        residue_list (list-like, required): The list of residues whose atoms we are
+            finding coordinates for
     """
-    print('*** in atoms_from_residues *** ')
     # construct the appropriate boolean array to index the atoms in the protein_dict
     for index, residue in enumerate(residue_list):
         if index == 0:
@@ -331,25 +342,42 @@ def atoms_from_residues(protein_dict, residue_list):
 def voxelize(path, channels=['CA']):
     """
     This function creates a dictionary of tensor fields directly from a pdb file.
+
     These tensor fields can be plotted, or sent directly into the cnn for
-    plotting internals, or sent all the way through a cnn/vae to be used for
-    training.
+        plotting internals, or sent all the way through a cnn/vae to be used for
+        training.
 
     Parameters:
-    ___________
-    path (str, required): path to a .pdb file
+        path (str, required): path to a .pdb file
 
-    channels (list, optional): The list of atomic channels to be included in
-        the output dictionary, one field for every channel. Channel options are:
-        ['C' 'CA' 'CB' 'CD' 'CD1' 'CD2' 'CE' 'CE1' 'CE2' 'CE3' 'CG' 'CG1' 'CG2'
-         'CH2' 'CZ' 'CZ2' 'CZ3' 'N' 'ND1' 'ND2' 'NE' 'NE1' 'NE2' 'NH1' 'NH2' 'NZ'
-         'O' 'OD1' 'OD2' 'OE1' 'OE2' 'OG' 'OG1' 'OH' 'OXT' 'SD' 'SG']
+        channels (list of strings, optional): The list of atomic channels to be included in
+            the output dictionary, one field for every channel.
 
-        Channels with good diversity of densities include: C/CA, CD, NH2, OH, SD/SG
+            Any channels from points 1-4 below may be combined in any order.
+            i.e., one could call voxelize with the channels parameter as
+            channels=['charged', 'CB', 'GLY', 'polar', ...etc]. Note that voxelization
+            for channels containing more atoms will take longer.
+
+            1. any of the following atom types
+
+                ['C' 'CA' 'CB' 'CD' 'CD1' 'CD2' 'CE' 'CE1' 'CE2' 'CE3' 'CG' 'CG1' 'CG2'
+                'CH2' 'CZ' 'CZ2' 'CZ3' 'N' 'ND1' 'ND2' 'NE' 'NE1' 'NE2' 'NH1' 'NH2' 'NZ'
+                'O' 'OD1' 'OD2' 'OE1' 'OE2' 'OG' 'OG1' 'OH' 'OXT' 'SD' 'SG']
+
+            2. Any canonical residue in the protein, using the three letter residue code, all caps
+               (NOTE: the residue must actually exist in the protein)
+
+                e.g., ['LYS', 'LEU', 'ALA']
+
+            3. The 'other' channel options: 'backbone', 'sidechains'
+
+            4. There are 6 channels corresponding to specific types of residues:
+
+                'charged', 'polar', 'nonpolar', 'amphipathic', 'acidic', 'basic'
 
     Returns:
-    ________
-    a dictionary of fields, each one with shape =  ([1, 1, 50, 50, 50])
+        dictioanry: a dictionary containing a voxelized atomic fields, one for each
+        channel requested. Each field has shape = ([1, 1, 50, 50, 50])
 
     """
     protein_dict = load_pdb(path)

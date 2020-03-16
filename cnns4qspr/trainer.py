@@ -1,10 +1,10 @@
 import os
 import sys
 import torch
-import torch.nn as nn
+# import torch.nn as nn
 import torch.utils.data
 import torch.optim as optim
-import torch.nn.functional as F
+# import torch.nn.functional as F
 import numpy as np
 from cnns4qspr.se3cnn_v3.util.arch_blocks import VAE, FeedForward
 from cnns4qspr.se3cnn_v3.util.losses import vae_loss, classifier_loss, regressor_loss
@@ -18,7 +18,7 @@ class Trainer():
                  latent_size=3,
                  encoder=[128],
                  decoder=[128],
-                 predictor=[128,128]):
+                 predictor=[128, 128]):
         self.type = type
         self.network_type = network_type
         self.latent_size = latent_size
@@ -132,10 +132,11 @@ class Trainer():
         labels = labels.reshape(-1, 1)
         concat_data = np.concatenate([data, labels], axis=1)
 
-        train_indices = np.random.choice(np.arange(self.n_samples), size=self.n_train_samples, replace=False)
+        train_indices = np.random.choice(np.arange(self.n_samples), \
+                        size=self.n_train_samples, replace=False)
         val_indices = np.array(list(set(np.arange(self.n_samples)) - set(train_indices)))
-        train_data = concat_data[train_indices,:]
-        val_data = concat_data[val_indices,:]
+        train_data = concat_data[train_indices, :]
+        val_data = concat_data[val_indices, :]
 
         train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size,
                                                    shuffle=True, num_workers=0,
@@ -188,8 +189,8 @@ class Trainer():
                         sys.stdout.write("\r\033[K"+epoch_counter+' '+progress_bar)
                 if self.use_gpu:
                     data = data.cuda()
-                input = torch.autograd.Variable(data[:,:-1])
-                label = torch.autograd.Variable(data[:,-1])
+                input = torch.autograd.Variable(data[:, :-1])
+                label = torch.autograd.Variable(data[:, -1])
 
                 ### Forward and backward propagation
                 if self.network_type == 'vae':
@@ -233,8 +234,8 @@ class Trainer():
             self.vae_losses['train'].append(avg_train_vae_loss)
             self.predictor_losses['train'].append(avg_train_pred_loss)
             self.accuracies['train'].append(avg_train_acc)
-            latent_means_train[epoch,:,:] = train_latent_space
-            label_history_train[epoch,:] = train_labels
+            latent_means_train[epoch, :, :] = train_latent_space
+            label_history_train[epoch, :] = train_labels
 
             ### Validate
             self.network.eval()
@@ -248,17 +249,19 @@ class Trainer():
             for batch_idx, data in enumerate(val_loader):
                 if verbose:
                     if batch_idx % 10 == 0:
-                        n_hash = int((batch_idx*self.batch_size+len(train_loader)*self.batch_size) / self.n_samples * 50)+1
+                        n_hash = int((batch_idx*self.batch_size+ \
+                            len(train_loader)*self.batch_size) / self.n_samples * 50)+1
                         progress_bar = '['+'#'*n_hash+'-'*(50-n_hash)+']'
                         sys.stdout.write("\r\033[K"+epoch_counter+' '+progress_bar)
                     elif batch_idx == len(val_loader)-1:
-                        n_hash = int((batch_idx*self.batch_size+len(train_loader)*self.batch_size) / self.n_samples * 50)+1
+                        n_hash = int((batch_idx*self.batch_size+ \
+                            len(train_loader)*self.batch_size) / self.n_samples * 50)+1
                         progress_bar = '['+'#'*n_hash+'-'*(50-n_hash)+']'
                         sys.stdout.write("\r\033[K"+epoch_counter+' '+progress_bar)
                 if self.use_gpu:
                     data = data.cuda()
-                input = torch.autograd.Variable(data[:,:-1])
-                label = torch.autograd.Variable(data[:,-1])
+                input = torch.autograd.Variable(data[:, :-1])
+                label = torch.autograd.Variable(data[:, -1])
 
                 ### Forward propagation
                 if self.network_type == 'vae':
@@ -298,8 +301,8 @@ class Trainer():
             self.vae_losses['validation'].append(avg_train_vae_loss)
             self.predictor_losses['validation'].append(avg_train_pred_loss)
             self.accuracies['validation'].append(avg_train_acc)
-            latent_means_val[epoch,:,:] = val_latent_space
-            label_history_val[epoch,:] = val_labels
+            latent_means_val[epoch, :, :] = val_latent_space
+            label_history_val[epoch, :] = val_labels
 
             self.current_state['state_dict'] = self.network.state_dict()
             self.current_state['optimizer'] = self.optimizer.state_dict()
@@ -324,9 +327,12 @@ class Trainer():
 
             if verbose:
                 if self.type == 'classifier':
-                    loss_statement = ' train_loss={} val_loss={} train_acc={} val_acc={}'.format(round(avg_train_loss, 2), round(avg_val_loss, 2), round(avg_train_acc, 2), round(avg_val_acc, 2))
+                    loss_statement = ' train_loss={} val_loss={} train_acc={} val_acc={}' \
+                                    .format(round(avg_train_loss, 2), \
+                                round(avg_val_loss, 2), round(avg_train_acc, 2), round(avg_val_acc, 2))
                 elif self.type == 'regressor':
-                    loss_statement = ' train_loss={} val_loss={}'.format(round(avg_train_loss, 2), round(avg_val_loss, 2))
+                    loss_statement = ' train_loss={} val_loss={}'.format(round(avg_train_loss, 2),\
+                                    round(avg_val_loss, 2))
                 sys.stdout.write("\r\033[K"+epoch_counter+' '+progress_bar+loss_statement+'\n')
 
         self.latent_means['train'] = latent_means_train
