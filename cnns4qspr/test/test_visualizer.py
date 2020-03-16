@@ -17,7 +17,7 @@ class test_visualizer(unittest.TestCase):
         """
         This method tests the plot_field function
         """
-        path = 'cnns4qspr/formatting_data/sample_pdbs/1a00B00'
+        path = 'cnns4qspr/examples/sample_pdbs/1a00B00'
         protein_dict = loader.load_pdb(path)
         fields1 = loader.make_fields(protein_dict)
         fields2 = loader.voxelize(path)

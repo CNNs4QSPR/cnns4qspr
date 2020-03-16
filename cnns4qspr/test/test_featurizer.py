@@ -38,6 +38,7 @@ class test_featurizer(unittest.TestCase):
         """
         This method tests the gen_feature_set function
         """
+        
 
     if __name__ == '__main__':
         unittest.main()
