@@ -22,4 +22,4 @@ python:
     - requirements: doc/requirements.txt
 
 conda:
-  environment: environment.yml
+  environment: doc/requirements.txt
