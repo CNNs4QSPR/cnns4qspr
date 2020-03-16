@@ -1,6 +1,6 @@
 """
 This module contains a Trainer class for quickly and easily building
-VAE or FeedForward property predictors from the extraced structural protein
+VAE or FeedForward property predictors from the extracted structural protein
 features.
 """
 
