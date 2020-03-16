@@ -377,7 +377,7 @@ def voxelize(path, channels=['CA']):
 
     Returns:
         dictioanry: a dictionary containing a voxelized atomic fields, one for each
-            channel requested. Each field has shape = ([1, 1, 50, 50, 50])
+        channel requested. Each field has shape = ([1, 1, 50, 50, 50])
 
     """
     protein_dict = load_pdb(path)

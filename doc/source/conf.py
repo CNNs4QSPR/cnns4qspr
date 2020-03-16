@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 
 project = 'cnns4qspr'
-copyright = '2020, Orion Dollar, Nisarg Joshi, Saransh Jain, David Juergens'
-author = 'Orion Dollar, Nisarg Joshi, Saransh Jain, David Juergens'
+copyright = '2020, Orion Dollar, David Juergens, Nisarg Joshi, Saransh Jain'
+author = 'Orion Dollar, David Juergens, Nisarg Joshi, Saransh Jain'
 
 # The full version, including alpha/beta/rc tags
 release = '0.0.1'
