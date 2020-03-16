@@ -1,7 +1,7 @@
 """
-This module contains functions to plot atomic density fields before they
-go into a model, as well as what the density fields have been transformed into
-at certain points within the model.
+This module contains functions to plot atomic density fields before
+they go into a model, as well as what the density fields have been
+transformed into at certain points within the model.
 """
 import torch
 import numpy as np
@@ -41,27 +41,30 @@ def plot_field(
         alpha=0.7,
         show=True):
     """
-    This function takes a tensorfield and plots the field density in 3D space.
-    The field describes an atomic "denisty" at each voxel.
+    This function takes a tensorfield and plots the field density in 3D
+    space. The field describes an atomic "density" at each voxel.
 
     Parameters:
-        field (pytorch tensor, required): A field from a field dictionary that was output by
+        field (pytorch tensor, required): A field from a field
+            dictionary that was output by
             either `voxelize` or `make_fields`.
 
-        color (str, optional): The color scheme to plot the field with. Any of the Plotly
-            continuous color schemes. 'deep' and 'ice_r' are recommended as good
-            baselines.
+        color (str, optional): The color scheme to plot the field. Any
+            of the Plotly continuous color schemes. 'deep' and 'ice_r'
+            are recommended as good baselines.
 
-        threshold (float, optional): The threshold intensity that a voxel must have
-            in order to be included in the plot.
+        threshold (float, optional): The threshold intensity that a
+            voxel must have in order to be included in the plot.
 
-        alpha (float, optional): Amount of transparency to use in plotted marks.
+        alpha (float, optional): Amount of transparency to use in
+            plotted marks.
 
-        show (boolean, optional): Whether to show the plot. If false, the plotly
-            fig object is returned.
+        show (boolean, optional): Whether to show the plot. If false,
+            the plotly fig object is returned.
 
     Returns:
-        plotly figure object: If show=False, a plotly figure object is returned
+        plotly figure object: If show=False, a plotly figure object is
+        returned
     """
     # if the cube is coming for the CathData class, it's indexed differently
     cube = field[0][0].numpy()
@@ -114,32 +117,36 @@ def plot_internals(
         threshold_on=True,
         feature_on=False):
     """
-    This function enables visualization of the output of various convolutional
-    layers inside the model.
+    This function enables visualization of the output of various
+    convolutional layers inside the model.
 
     Parameters:
-        model (pytorch neural network, required): The CNN model that data can be sent throug.
-            The model object can be constructed by using featurizer.load_cnn()
+        model (pytorch neural network, required): The CNN model that
+            data can be sent through. The model object can be
+            constructed by using featurizer.load_cnn()
 
-        field (pytorch tensor, required): A field from a field dictionary (see make_fields or
-            voxelize)
+        field (pytorch tensor, required): A field from a field
+            dictionary (see make_fields or voxelize)
 
-        block (int, optional): Any of the 5 major blocks contained in the model object.
-            This integer determines at which stage of the CNN the data will be plotted from.
+        block (int, optional): Any of the 5 major blocks contained in
+            the model object. This integer determines at which stage of
+            the CNN the data will be plotted from.
 
         channel (int, optional):
 
-        threshold_on (boolean, optional): If threshold_on=True, plot will be constructed with
-            the default threshold value from plot_fields (0.2). If threshold_on=False,
-            plot is constructed with threshold 0.0001
+        threshold_on (boolean, optional): If threshold_on=True, plot
+            will be constructed with the default threshold value from
+            plot_fields (0.2). If threshold_on=False, plot is
+            constructed with threshold 0.0001
 
-        feature_on (boolean, optional): Whether or not to return the feature vector
-            of the field that was sent through the model to make this plot.
+        feature_on (boolean, optional): Whether or not to return the
+            feature vector of the field that was sent through the model
+            to make this plot.
 
     Returns:
-        pytorch tensor: the feature vector that results from the particular field
-            being sent all the way through the network. Only returns if
-            feature_on=True
+        pytorch tensor: the feature vector that results from the
+        particular field being sent all the way through the network.
+        Only returns if feature_on=True
     """
 
     model.blocks[0].register_forward_hook(outer_block1_hook)
