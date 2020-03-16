@@ -425,10 +425,10 @@ class Trainer():
             avg_val_acc = np.float64(np.mean(val_accs))
             val_latent_space = np.concatenate(latent_space)
             val_labels = np.concatenate(val_labels)
-            self.total_losses['validation'].append(avg_train_loss)
-            self.vae_losses['validation'].append(avg_train_vae_loss)
-            self.predictor_losses['validation'].append(avg_train_pred_loss)
-            self.accuracies['validation'].append(avg_train_acc)
+            self.total_losses['validation'].append(avg_val_loss)
+            self.vae_losses['validation'].append(avg_val_vae_loss)
+            self.predictor_losses['validation'].append(avg_val_pred_loss)
+            self.accuracies['validation'].append(avg_val_acc)
             latent_means_val[epoch, :, :] = val_latent_space
             label_history_val[epoch, :] = val_labels
 
@@ -465,7 +465,7 @@ class Trainer():
         self.latent_means['train'] = latent_means_train
         self.latent_means['validation'] = latent_means_val
         self.label_history['train'] = label_history_train
-        self.label_history['val'] = label_history_val
+        self.label_history['validation'] = label_history_val
 
     def predict(self, data):
         """
