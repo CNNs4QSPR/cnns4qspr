@@ -39,7 +39,8 @@ def plot_field(
         color='deep',
         threshold=0.2,
         alpha=0.7,
-        show=True):
+        show=True,
+        title=''):
     """
     This function takes a tensorfield and plots the field density in 3D
     space. The field describes an atomic "density" at each voxel.
@@ -99,7 +100,7 @@ def plot_field(
             xaxis=dict(range=[-25, 25]),
             yaxis=dict(range=[-25, 25]),
             zaxis=dict(range=[-25, 25])
-        )
+        ), title=title
     )
     if show:
         fig.show()
