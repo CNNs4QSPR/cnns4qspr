@@ -26,18 +26,20 @@ Compression of protein structural data into a feature vector. This can be used t
 4.	Training models for structure prediction in different solutions/environments.
 5.	Recommender systems for protein sequence prediction.
 
-### Visual demonstrations
+## Package description and contents
 
 cnns4qspr "voxelizes" protein structure data, so that data are in a form which is acceptable as input to a 3D convolutional neural network (CNN). Voxelization simply means the atomic coordinates are transformed from descrete points in 3D space, to slightly smeared atomic densities that fill "voxels" (3D pixels) in a new 3D picture of the protein.
 
-#### Voxelization of protein data
+#### 1. Voxelization of protein data
 Here, we demonstrate what voxelization of all the backbone atoms in green flourescent protein (GFP) results in. Clearly, the molecular sctructure of GFP is maintained throughout the transformation. This tells us the network will be able to "see" key structural information unique to GFP.
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/backbone_exploded.gif" width="475" height="375" >
 </p>
 
-#### Flexibility of feature extraction
+#### 2. Visualization of feature data
+
+#### 3. Feature extraction
 
 It is well known in machine learning that a model will only be as good as the data you feed it. Therefore, in a regression or classification task using protein structures as the input, it is essential to engineer the data in such a way that the most relevant features for the task at hand are highlighted. As an example, consider a task of binary classification: is the protein a membrane protein, or not? In order to answer this question accurately, a model probably needs to see the distribution of various types of amino acids within a protein. cnns4qspr makes extraction of different chemical features as easy as typing them in.
 
@@ -45,3 +47,7 @@ Below is a demonstration of the differences between cnns4qspr's voxelization of 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/polar_nonpolar_backbone.gif" width="475" height="375" >
 </p>
+
+#### 4. Training on extracted features
+
+## Installation
