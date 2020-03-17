@@ -4,14 +4,13 @@
 
 A package for creating rich, equivariant, structural and chemical features from protein structure data.
 
-## A quick overview
+## Overview
 
 Scientists are continually finding applications for machine learning in all branches of science, and the field of structural biology is no exception. The purpose of the cnns4qspr package is to make extraction of high quality features from 3D protein structures as easy as possible for a user. Once a user has their desired features, they may use them for whatever machine learning task they desire.
 
-#### Users:
+#### Who can make use of this package:
 
-Parties involved in the proteins research for structure-to-function prediction, de novo design, solvent interaction, solid interactions, etc.
-
+This package is great for anyone trying to investigate quantitative structure-property relationships (QSPR) in proteins. Some examples include researchers studying de novo design, protein crystal-solvent interactions, solid interactions, and protein-ligand interactions. Generally speaking, anyone wanting to map protein-crystal structures to a property may find cnns4qspr useful.
 
 #### Feature vector:
 
@@ -35,7 +34,7 @@ cnns4qspr "voxelizes" protein structure data, so that data are in a form which i
 Here, we demonstrate what voxelization of all the backbone atoms in green flourescent protein (GFP) results in. Clearly, the molecular sctructure of GFP is maintained throughout the transformation. This tells us the network will be able to "see" key structural information unique to GFP.
 
 <p align="center">
-<img align="middle" src="cnns4qspr/figs/backbone_exploded.gif" width="475" height="365" >
+<img align="middle" src="cnns4qspr/figs/backbone_exploded.gif" width="475" height="375" >
 </p>
 
 #### Flexibility of feature extraction
@@ -44,5 +43,5 @@ It is well known in machine learning that a model will only be as good as the da
 
 Below is a demonstration of the differences between cnns4qspr's voxelization of 'backbone', 'polar', and 'nonpolar' atomic channel selections a user can make when voxelizing a protein. The differences in chemical information are clear.
 <p align="center">
-<img align="middle" src="cnns4qspr/figs/polar_nonpolar_backbone.gif" width="475" height="365" >
+<img align="middle" src="cnns4qspr/figs/polar_nonpolar_backbone.gif" width="475" height="375" >
 </p>
