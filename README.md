@@ -64,6 +64,10 @@ A model is only as good as the data you feed it. Below is a demonstration of the
 ### 4. Training on extracted features: trainer.py
 Variational autoencoders (VAEs) are a versatile tool for data compression, organization, interpolation, and generation. The trainer module allows users to create custom VAEs with regression or classification capabilities built into the latent space. 
 
+<p align="center">
+<img align="middle" src="cnns4qspr/figs/Gomez_et_al_VAE.png" width="475" height="375" >
+</p>
+
 ## Package accomplishments
 
 ### 1. Reproduced literature results after feature compression 
