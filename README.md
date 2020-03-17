@@ -8,17 +8,17 @@ A package for creating rich, equivariant, structural and chemical features from 
 
 Scientists are continually finding applications for machine learning in all branches of science, and the field of structural biology is no exception. The purpose of the cnns4qspr package is to make extraction of high quality features from 3D protein structures as easy as possible for a user. Once a user has their desired features, they may use them for whatever machine learning task they desire.
 
-####Users:
+#### Users:
 
 Parties involved in the proteins research for structure-to-function prediction, de novo design, solvent interaction, solid interactions, etc.
 
 
-####Feature vector:
+#### Feature vector:
 
 1.	The user must input the path of the pdb file to the functions featurize or gen_feature_set from featurizer.py.
 2.	The function would return a set of feature vectors based on the channels specified.
 
-####Uses:
+#### Uses:
 
 Compression of protein structural data into a feature vector. This can be used to convert pdb protein data in a structural information-dense vector space. This structural information vector can be used for:
 1.	Training models for Structural classification prediction. (See examples)
