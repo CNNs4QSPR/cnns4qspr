@@ -47,7 +47,7 @@ Available channels for a protein include:
 * Atoms from residues with a certain property (charged, polar, nonpolar, acidic, basic, amphipathic)
 
 <p align="center">
-<img align="middle" src="cnns4qspr/figs/polar_nonpolar_backbone.gif" width="475" height="375" >
+<img align="middle" src="cnns4qspr/figs/fast_backbone_polar_nonpolar.gif" width="475" height="375" >
 </p>
 
 
