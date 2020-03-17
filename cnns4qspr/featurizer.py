@@ -1,7 +1,7 @@
 """
 This module contains functions for loading a pre-trained convolutional
-neural network and getting convolutional vector from the tensor fields which
-can be used for VAE or for plotting the internals.
+neural network and getting convolutional vector from the tensor fields
+which can be used for VAE or for plotting the internals.
 """
 import os
 import sys
@@ -20,12 +20,12 @@ def load_cnn(checkpoint_fn, n_input=1):
     to be used as a feature extractor from the users input pdb file.
 
     Parameters:
-        checkpoint_fn (str, required): The filename of the ckpt file used to load
-            the model.
+        checkpoint_fn (str, required): The filename of the ckpt file
+            used to load the model.
 
     Returns:
-        model (pytorch.network): A fully trained pytorch network object with 256
-            output nodes.
+        model (pytorch.network): A fully trained pytorch network object
+            with 256 output nodes.
     """
 
     # Read and load checkpoint files
@@ -41,12 +41,12 @@ def load_cnn(checkpoint_fn, n_input=1):
 
 def featurize(field, channels='all'):
     """
-    Takes a dictionary of voxelized tensor fields (50x50x50) and convolutes
-    to a single 256 element scalar feature vector
+    Takes a dictionary of voxelized tensor fields (50x50x50) and
+    convolutes to a single 256 element scalar feature vector
 
     Parameters:
-        field (dict, required): Dictionary storing channel type as key and
-            voxelized input tensor as value
+        field (dict, required): Dictionary storing channel type as key
+            and voxelized input tensor as value
 
     Returns:
         feature_vec (dict): Dictionary storing channel type as key and
@@ -73,12 +73,12 @@ def gen_feature_set(pdb_path, channels=['CA'], save=False, \
     Parameters:
         pdb_path (path, required): path of the pdb file
 
-        channels (list-like, optional): for the specific channels we want
-            the arrays for.
+        channels (list-like, optional): for the specific channels we
+            want the arrays for.
 
     Returns:
-        feature_set ( numpy array): returns the array of nx256 where n is
-            the number of pdbs.
+        feature_set ( numpy array): returns the array of nx256 where n
+            is the number of pdbs.
     """
 
     pdb_fns = os.listdir(pdb_path)
