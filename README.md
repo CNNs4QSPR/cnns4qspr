@@ -52,7 +52,11 @@ Available channels for a protein include:
 
 
 ### 2. Visualization of feature data: visualizer.py
-Data visualization is key for holding inuition and control over what a model is doing. The visualizer.py module enables easy visualization of what features look like before entering the CNN, and after any of the convolutional filters within the CNN.   
+Data visualization is key for holding inuition and control over what a model is doing. The visualizer.py module enables easy visualization of what features look like before entering the CNN, and after any of the convolutional filters within the CNN. 
+
+<p align="center">
+<img align="middle" src="cnns4qspr/figs/plot_internals_demo.gif" width="475" height="375" >
+</p>
 
 ### 3. Feature extraction: featurizer.py
 A model is only as good as the data you feed it. Below is a demonstration of the differences between cnns4qspr's voxelization of 'backbone', 'polar', and 'nonpolar' atomic channel selections a user can make when voxelizing a protein. The differences in chemical information are clear.
