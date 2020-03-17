@@ -62,7 +62,7 @@ Data visualization is key for holding inuition and control over what a model is 
 A model is only as good as the data you feed it. Below is a demonstration of the differences between cnns4qspr's voxelization of 'backbone', 'polar', and 'nonpolar' atomic channel selections a user can make when voxelizing a protein. The differences in chemical information are clear.
 
 <p align="center">
-<img align="middle" src="cnns4qspr/figs/3d_to_1d.png" width="460" height="375" >
+<img align="middle" src="cnns4qspr/figs/3d_to_1d.png" width="490" height="375" >
 </p>
 
 ### 4. Training on extracted features: trainer.py
