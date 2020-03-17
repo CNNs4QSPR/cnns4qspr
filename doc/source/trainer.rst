@@ -1,6 +1,6 @@
 trainer.py
 =================
-The trainer module can be accessed via
+trainer is accessed via
 ::
    from cnns4qspr import trainer
 

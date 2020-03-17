@@ -1,6 +1,6 @@
 visualizer.py
 ====================
-The visualizer module can be accessed via
+visualizer is accessed via
 ::
    from cnns4qspr import visualizer
 

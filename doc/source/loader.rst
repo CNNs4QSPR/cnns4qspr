@@ -1,6 +1,6 @@
 loader.py
 ================
-The loader module can be accessed via
+loader is acecssed via
 ::
    from cnns4qspr import loader
 

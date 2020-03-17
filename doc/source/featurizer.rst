@@ -1,6 +1,6 @@
 featurizer.py
 ====================
-The featurizer module can be accessed via
+featurizer is accessed via
 ::
    from cnns4qspr import featurizer
 
