@@ -30,24 +30,35 @@ Compression of protein structural data into a feature vector. This can be used t
 
 cnns4qspr "voxelizes" protein structure data, so that data are in a form which is acceptable as input to a 3D convolutional neural network (CNN). Voxelization simply means the atomic coordinates are transformed from descrete points in 3D space, to slightly smeared atomic densities that fill "voxels" (3D pixels) in a new 3D picture of the protein.
 
-#### 1. Voxelization of protein data
-Here, we demonstrate what voxelization of all the backbone atoms in green flourescent protein (GFP) results in. Clearly, the molecular sctructure of GFP is maintained throughout the transformation. This tells us the network will be able to "see" key structural information unique to GFP.
+### 1. Voxelization of protein data: loader.py
+Voxelization of all the backbone atoms in green flourescent protein (GFP). Key aspects of the molecular sctructure of GFP are maintained throughout the transformation. Thus, the network will be able to "see" key structural information unique to GFP.
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/backbone_exploded.gif" width="475" height="375" >
 </p>
 
-#### 2. Visualization of feature data
+#### Custom atomic channel selection
+A model is only as good as the data you feed it. Loader has the ability to voxelize relevant atomic "channels" to present relevant chemical information to a model. 
 
-#### 3. Feature extraction
+Available channels for a protein include:
+* Atoms of a particular type (C, CA, CB, O, N, ...)
+* Atoms from a canonical residue (LYS, ALA, ...)
+* Backbone atoms (C, CA, O, N) or sidechain atoms
+* Atoms from residues with a certain property (charged, polar, nonpolar, acidic, basic, amphipathic)
 
-It is well known in machine learning that a model will only be as good as the data you feed it. Therefore, in a regression or classification task using protein structures as the input, it is essential to engineer the data in such a way that the most relevant features for the task at hand are highlighted. As an example, consider a task of binary classification: is the protein a membrane protein, or not? In order to answer this question accurately, a model probably needs to see the distribution of various types of amino acids within a protein. cnns4qspr makes extraction of different chemical features as easy as typing them in.
-
-Below is a demonstration of the differences between cnns4qspr's voxelization of 'backbone', 'polar', and 'nonpolar' atomic channel selections a user can make when voxelizing a protein. The differences in chemical information are clear.
 <p align="center">
-<img align="middle" src="cnns4qspr/figs/polar_nonpolar_backbone.gif" width="475" height="375" >
+<img align="middle" src="cnns4qspr/figs/fast_backbone_polar_nonpolar.gif" width="475" height="375" >
 </p>
 
-#### 4. Training on extracted features
+
+### 2. Visualization of feature data: visualizer.py
+Data visualization is key for holding inuition and control over what a model is doing. The visualizer.py module enables easy visualization of what features look like before entering the CNN, and after any of the convolutional filters within the CNN.   
+
+### 3. Feature extraction: featurizer.py
+A model is only as good as the data you feed it. Below is a demonstration of the differences between cnns4qspr's voxelization of 'backbone', 'polar', and 'nonpolar' atomic channel selections a user can make when voxelizing a protein. The differences in chemical information are clear.
+
+#### 4. Training on extracted features: trainer.py
+
+## Package results
 
 ## Installation
