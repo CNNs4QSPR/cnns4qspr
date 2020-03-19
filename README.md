@@ -10,6 +10,12 @@ A package for creating rich, equivariant, structural and chemical features from 
 2. `pip install git+https://github.com/CNNs4QSPR/se3cnn.git`
 3. `pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git`
 
+## Documentation
+
+Detailed documentation for all modules can be found in `doc/README.pdf`
+
+A component specification diagram may also be found in `doc/component_specification.jpg`
+
 ## Overview
 
 Scientists are continually finding applications for machine learning in all branches of science, and the field of structural biology is no exception. The purpose of the cnns4qspr package is to make extraction of high quality features from 3D protein structures as easy as possible for a user. Once a user has their desired features, they may use them for whatever machine learning task they desire.
@@ -68,7 +74,7 @@ Data visualization is key for holding inuition and control over what a model is 
 A model is only as good as the data you feed it. Below is a demonstration of the differences between cnns4qspr's voxelization of 'backbone', 'polar', and 'nonpolar' atomic channel selections a user can make when voxelizing a protein. The differences in chemical information are clear.
 
 <p align="center">
-<img align="middle" src="cnns4qspr/figs/3d_to_1d.png" width="635" height="375" >
+<img align="middle" src="cnns4qspr/figs/3d_to_1d.png" width="685" height="375" >
 </p>
 
 ### 4. Training on extracted features: trainer.py
@@ -80,7 +86,7 @@ Variational autoencoders (VAEs) are a versatile tool for data compression, organ
 
 ## Package accomplishments
 
-### 1. Reproduced literature results after feature compression
+### 1. Reproduced [literature](https://arxiv.org/abs/1807.02547) accuracy for protein structure classification using VAE compressed features
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/CATH_VAE_training_validation_accuracy.png" width="475" height="375" >
