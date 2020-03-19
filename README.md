@@ -32,10 +32,10 @@ This package is great for anyone trying to investigate quantitative structure-pr
 #### Uses:
 
 Compression of protein structural data into a feature vector. This can be used to convert pdb protein data in a structural information-dense vector space. This structural information vector can be used for:
-1.	Training models for Structural classification prediction. (See examples)
-2.	Reducing the computation expense for structure-to-property predictions.
-3.	Decoders for identifying the features of the amino acid residues primarily responsible for the secondary structure.
-4.	Training models for structure prediction in different solutions/environments.
+1.	Training models for structural classification prediction. (See examples, below)
+2.	Reducing the computational expense for structure-to-property predictions.
+3.	Decoders for identifying the features of the amino acid residues primarily responsible for protein secondary structure.
+4.	Training models for structure prediction in different solutions and environments.
 5.	Recommender systems for protein sequence prediction.
 
 ## Package description and contents
