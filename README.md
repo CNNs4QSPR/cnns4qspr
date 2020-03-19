@@ -4,6 +4,12 @@
 
 A package for creating rich, equivariant, structural and chemical features from protein structure data.
 
+## Installation
+
+1. pip install git+https://github.com/AMLab-Amsterdam/lie_learn
+2. pip install git+https://github.com/CNNs4QSPR/se3cnn.git
+3. pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git
+
 ## Overview
 
 Scientists are continually finding applications for machine learning in all branches of science, and the field of structural biology is no exception. The purpose of the cnns4qspr package is to make extraction of high quality features from 3D protein structures as easy as possible for a user. Once a user has their desired features, they may use them for whatever machine learning task they desire.
@@ -16,12 +22,6 @@ This package is great for anyone trying to investigate quantitative structure-pr
 
 1.	The user must input the path of the pdb file to the functions featurize or gen_feature_set from featurizer.py.
 2.	The function would return a set of feature vectors based on the channels specified.
-
-## Installation
-
-1. pip install git+https://github.com/AMLab-Amsterdam/lie_learn
-2. pip install git+https://github.com/CNNs4QSPR/se3cnn.git
-3. pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git
 
 #### Uses:
 
