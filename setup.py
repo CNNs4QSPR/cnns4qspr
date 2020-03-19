@@ -15,23 +15,23 @@ setup(
 		'davidcj@uw.edu',
 		'nisargj@uw.edu',
 		'saranshj$uw.edu',
-		]
-    	license='MIT License',
-   	packages=find_packages(),
+		],
+	license='MIT License',
+	packages=find_packages(),
     	install_requires=[
 			'numpy',
-			'scipy'
+			'scipy',
 			'torch',
 			'pandas',
 			'plotly.express',
 			'biopandas',
-			'os',
-			'sys',
-			'pkg_resources'
-			'lie_learn'
-			'se3cnn'
+			'se3cnn',
+			'lie_learn',
         		],
-
+	dependency_links=[
+			'https://github.com/AMLab-Amsterdam/lie_learn',
+			'https://github.com/blondegeek/se3cnn',
+			],
     	classifiers=[
         	'Intended Audience :: Science/Research',
        		'License :: OSI Approved :: MIT License',
