@@ -10,6 +10,11 @@ A package for creating rich, equivariant, structural and chemical features from 
 2. `pip install git+https://github.com/CNNs4QSPR/se3cnn.git`
 3. `pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git`
 
+## Documentation
+
+Detailed documentation for all modules can be found in doc/README.pdf 
+A component specification diagram may also be found in doc/component_specification.png
+
 ## Overview
 
 Scientists are continually finding applications for machine learning in all branches of science, and the field of structural biology is no exception. The purpose of the cnns4qspr package is to make extraction of high quality features from 3D protein structures as easy as possible for a user. Once a user has their desired features, they may use them for whatever machine learning task they desire.
