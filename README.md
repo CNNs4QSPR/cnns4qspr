@@ -86,7 +86,7 @@ Variational autoencoders (VAEs) are a versatile tool for data compression, organ
 
 ## Package accomplishments
 
-### 1. Reproduced literature results after feature compression
+### 1. Reproduced [literature](https://arxiv.org/abs/1807.02547) accuracy for protein structure classification using VAE compressed features
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/CATH_VAE_training_validation_accuracy.png" width="475" height="375" >
