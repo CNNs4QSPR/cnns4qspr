@@ -17,6 +17,12 @@ This package is great for anyone trying to investigate quantitative structure-pr
 1.	The user must input the path of the pdb file to the functions featurize or gen_feature_set from featurizer.py.
 2.	The function would return a set of feature vectors based on the channels specified.
 
+## Installation
+
+1. pip install git+https://github.com/AMLab-Amsterdam/lie_learn
+2. pip install git+https://github.com/CNNs4QSPR/se3cnn.git
+3. pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git
+
 #### Uses:
 
 Compression of protein structural data into a feature vector. This can be used to convert pdb protein data in a structural information-dense vector space. This structural information vector can be used for:
@@ -38,7 +44,7 @@ Voxelization of all the backbone atoms in green flourescent protein (GFP). Key a
 </p>
 
 #### Custom atomic channel selection
-A model is only as good as the data you feed it. Loader has the ability to voxelize relevant atomic "channels" to present relevant chemical information to a model. 
+A model is only as good as the data you feed it. Loader has the ability to voxelize relevant atomic "channels" to present relevant chemical information to a model.
 
 Available channels for a protein include:
 * Atoms of a particular type (C, CA, CB, O, N, ...)
@@ -52,7 +58,7 @@ Available channels for a protein include:
 
 
 ### 2. Visualization of feature data: visualizer.py
-Data visualization is key for holding inuition and control over what a model is doing. The visualizer.py module enables easy visualization of what features look like before entering the CNN, and after any of the convolutional filters within the CNN. 
+Data visualization is key for holding inuition and control over what a model is doing. The visualizer.py module enables easy visualization of what features look like before entering the CNN, and after any of the convolutional filters within the CNN.
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/fast_plot_internals_demo.gif" width="475" height="375" >
@@ -66,7 +72,7 @@ A model is only as good as the data you feed it. Below is a demonstration of the
 </p>
 
 ### 4. Training on extracted features: trainer.py
-Variational autoencoders (VAEs) are a versatile tool for data compression, organization, interpolation, and generation. The trainer module allows users to create custom VAEs with regression or classification capabilities built into the latent space. 
+Variational autoencoders (VAEs) are a versatile tool for data compression, organization, interpolation, and generation. The trainer module allows users to create custom VAEs with regression or classification capabilities built into the latent space.
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/Gomez_et_al_VAE.png" width="460" height="375" >
@@ -74,7 +80,7 @@ Variational autoencoders (VAEs) are a versatile tool for data compression, organ
 
 ## Package accomplishments
 
-### 1. Reproduced literature results after feature compression 
+### 1. Reproduced literature results after feature compression
 
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/CATH_VAE_training_validation_accuracy.png" width="475" height="375" >
@@ -85,5 +91,3 @@ Variational autoencoders (VAEs) are a versatile tool for data compression, organ
 <p align="center">
 <img align="middle" src="cnns4qspr/figs/latent2_reorg.gif" width="475" height="375" >
 </p>
-
-
