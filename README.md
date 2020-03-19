@@ -12,8 +12,9 @@ A package for creating rich, equivariant, structural and chemical features from 
 
 ## Documentation
 
-Detailed documentation for all modules can be found in doc/README.pdf 
-A component specification diagram may also be found in doc/component_specification.png
+Detailed documentation for all modules can be found in `doc/README.pdf`
+
+A component specification diagram may also be found in `doc/component_specification.jpg`
 
 ## Overview
 
