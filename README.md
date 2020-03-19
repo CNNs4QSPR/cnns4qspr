@@ -6,9 +6,9 @@ A package for creating rich, equivariant, structural and chemical features from 
 
 ## Installation
 
-1. pip install git+https://github.com/AMLab-Amsterdam/lie_learn
-2. pip install git+https://github.com/CNNs4QSPR/se3cnn.git
-3. pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git
+1. `pip install git+https://github.com/AMLab-Amsterdam/lie_learn`
+2. `pip install git+https://github.com/CNNs4QSPR/se3cnn.git`
+3. `pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git`
 
 ## Overview
 
