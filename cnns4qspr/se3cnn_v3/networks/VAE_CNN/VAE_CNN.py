@@ -2,9 +2,9 @@ import torch.nn as nn
 
 from functools import partial
 
-from cnns4qspr.se3cnn_v3.util.arch_blocks import *
+from se3cnn.examples.image.cath.util import *
+from cnns4qspr.se3cnn_v3.util.arch_blocks import VAE
 from se3cnn.image import kernel
-
 
 class network(ResNet):
     def __init__(self,
