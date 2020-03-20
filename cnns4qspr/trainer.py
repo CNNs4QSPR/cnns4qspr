@@ -10,8 +10,8 @@ import torch
 import torch.utils.data
 import torch.optim as optim
 import numpy as np
-from cnns4qspr.se3cnn_v3.util.arch_blocks import VAE, FeedForward
-from cnns4qspr.se3cnn_v3.util.losses import vae_loss, classifier_loss, regressor_loss
+from cnns4qspr.util.pred_blocks import VAE, FeedForward
+from cnns4qspr.util.losses import vae_loss, classifier_loss, regressor_loss
 
 class Trainer():
     """

@@ -15,7 +15,7 @@ from functools import partial
 import argparse
 
 from se3cnn.util import *
-from util.arch_blocks import VAE
+from cnns4qspr.util.pred_blocks import VAE
 from se3cnn.util.format_data import CathData
 
 def vae_loss(vae_in, vae_out, mu, logvar):
