@@ -5,7 +5,6 @@ which can be used for VAE or for plotting the internals.
 """
 import os
 import sys
-# import importlib
 import torch
 import numpy as np
 import pkg_resources

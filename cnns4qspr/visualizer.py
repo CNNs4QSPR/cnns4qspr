@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 
-
 def outer_block1_hook(module, input_, output):
     global outer_block1_out
     outer_block1_out = output

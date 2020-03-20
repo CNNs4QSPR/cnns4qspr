@@ -15,8 +15,8 @@ from shutil import copyfile
 from functools import partial
 import argparse
 
-from se3cnn.examples.image.cath.util import *
-from se3cnn.examples.image.cath.util.format_data import CathData
+from se3cnn.util import *
+from se3cnn.util.format_data import CathData
 
 # python cnn_run.py --model VAE --data-filename cath_3class_ca.npz --training-epochs 100 --batch-size 1 --latent-size 3 --lamb_conv_weight_L1 1e-7 --lamb_conv_weight_L2 1e-7 --lamb_bn_weight_L1 1e-7 --lamb_bn_weight_L2 1e-7
 

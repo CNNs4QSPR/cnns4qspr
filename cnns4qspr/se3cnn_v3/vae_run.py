@@ -14,9 +14,9 @@ from shutil import copyfile
 from functools import partial
 import argparse
 
-from se3cnn.examples.image.cath.util import *
+from se3cnn.util import *
 from util.arch_blocks import VAE
-from se3cnn.examples.image.cath.util.format_data import CathData
+from se3cnn.util.format_data import CathData
 
 def vae_loss(vae_in, vae_out, mu, logvar):
     BCE = F.binary_cross_entropy(vae_out, vae_in.view(-1, 256), reduction='mean')

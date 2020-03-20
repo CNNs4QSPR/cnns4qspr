@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from functools import partial
 
-from se3cnn.examples.image.cath.util import *
+from se3cnn.util import *
 from se3cnn.image import kernel
 
 
