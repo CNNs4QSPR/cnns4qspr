@@ -1,5 +1,6 @@
 # Cache files
 *.cache
+*mutex
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
