@@ -4,6 +4,8 @@ the atomic density fields for different atom types. The fields can then be
 used for plotting, or to send into the convolutional neural network.
 """
 
+import os
+import sys
 import torch
 import numpy as np
 
@@ -109,7 +111,7 @@ def grid_positions(grid_array):
     zgrid = grid_array.view(1, 1, -1).repeat(len(grid_array), len(grid_array), 1)
     return (xgrid, ygrid, zgrid)
 
-def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
+def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50, return_bins=False):
     """
     This function takes a protein dict (from load_pdb function) and outputs a
         large tensor containing many atomic "fields" for the protein.
@@ -212,14 +214,16 @@ def make_fields(protein_dict, channels=['CA'], bin_size=2.0, num_bins=50):
         sum_densities[sum_densities != sum_densities] = 0
 
         # add two empty dimmensions to make it 1x1x50x50x50, needed for CNN
-        sum_densities = sum_densities.unsqueeze(0)
-        sum_densities = sum_densities.unsqueeze(0)
+        # sum_densities = sum_densities.unsqueeze(0)
+        # sum_densities = sum_densities.unsqueeze(0)
 
         #fields[atom_type_index] = sum_densities
-        fields[channel] = sum_densities
+        fields[channel] = sum_densities.numpy()
 
-
-    return fields
+    if return_bins:
+        return fields, num_bins
+    else:
+        return fields
 
 def check_channel(channel, filter_set):
     """
@@ -339,7 +343,7 @@ def atoms_from_residues(protein_dict, residue_list):
 
     return atom_positions
 
-def voxelize(path, channels=['CA']):
+def voxelize(path, channels=['CA'], path_type='file', save=False, save_fn='voxels.npy', save_path='./'):
     """
     This function creates a dictionary of tensor fields directly from a pdb file.
 
@@ -376,9 +380,39 @@ def voxelize(path, channels=['CA']):
                 'charged', 'polar', 'nonpolar', 'amphipathic', 'acidic', 'basic'
 
     Returns:
-        dictioanry: a dictionary containing a voxelized atomic fields, one for each
+        dictionary: a dictionary containing a voxelized atomic fields, one for each
         channel requested. Each field has shape = ([1, 1, 50, 50, 50])
 
     """
-    protein_dict = load_pdb(path)
-    return make_fields(protein_dict, channels=channels)
+    if path_type == 'file':
+        protein_dict = load_pdb(path)
+        return make_fields(protein_dict, channels=channels)
+
+    # ------------FOLDER FUNCTIONALITY INCOMPLETE---------------
+    elif path_type == 'folder':
+        fields = []
+        pdb_fns = os.listdir(path)
+        for j, fn in enumerate(pdb_fns):
+            progress = '{}/{} pdbs voxelized ({}%)'.format(j, len(pdb_fns), \
+                        round(j / len(pdb_fns) * 100, 2))
+            sys.stdout.write('\r'+progress)
+            protein_dict = load_pdb(os.path.join(path, fn))
+            field, bins = make_fields(protein_dict, channels=channels, return_bins=True)
+            channel_list = []
+            for channel in channels:
+                channel_list.append(field[channel].reshape(1,
+                                                           bins,
+                                                           bins,
+                                                           bins))
+            field = np.concatenate(channel_list).reshape(1,len(channels),
+                                                         bins, bins, bins)
+            fields.append(field)
+        sys.stdout.write("\r\033[K")
+        out_statement = 'voxelization complete!\n'
+        sys.stdout.write('\r'+out_statement)
+        fields = np.concatenate(fields)
+
+        if save:
+            np.save(os.path.join(save_path, save_fn), fields)
+        else:
+            return fields

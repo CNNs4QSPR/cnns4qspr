@@ -14,6 +14,7 @@ class VAE(nn.Module):
         super().__init__()
 
         self.input_size = input_size
+        self.output_size = n_output
         self.latent_size = latent_size
         self.type = type
         self.info = {'type': type,
@@ -78,6 +79,7 @@ class FeedForward(nn.Module):
         super().__init__()
 
         self.input_size = input_size
+        self.output_size = n_output
         self.type = type
         self.info = {'type': type,
                      'output_nodes': n_output,

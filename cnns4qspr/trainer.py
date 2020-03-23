@@ -7,9 +7,14 @@ features.
 import os
 import sys
 import torch
+import torch.nn as nn
 import torch.utils.data
 import torch.optim as optim
 import numpy as np
+import importlib
+from se3cnn.util.get_param_groups import get_param_groups
+from se3cnn.util.optimizers_L1L2 import Adam
+from se3cnn.util.lr_schedulers import lr_scheduler_exponential
 from cnns4qspr.util.pred_blocks import VAE, FeedForward
 from cnns4qspr.util.losses import vae_loss, classifier_loss, regressor_loss
 
@@ -494,3 +499,113 @@ class Trainer():
             elif self.network_type == 'feedforward':
                 prediction = self.network(input)
             return prediction.data.cpu().numpy()
+
+class CNNTrainer():
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 args):
+        self.model = args.model
+        self.network_module = importlib.import_module('cnns4qspr.se3cnn_v3.networks.{:s}.{:s}'.format(self.model, self.model))
+        self.input_size = input_size
+        self.output_size = output_size
+        self.args = args
+        self.predictor_type = args.predictor_type
+        if args.predictor == 'feedforward':
+            self.predictor = FeedForward(type=self.predictor_type,
+                                         n_output=self.output_size)
+        elif args.predictor == 'vae':
+            self.predictor = VAE(type=self.predictor_type,
+                                 latent_size=latent_size,
+                                 n_output=self.output_size)
+
+        self.network = self.network_module.network(n_input=self.input_size,
+                                                   args=args)
+        self.blocks = [block for block in self.network.blocks if block is not None]
+        self.blocks.append(self.predictor)
+        self.network.blocks = nn.Sequential(*[block for block in self.blocks if block is not None])
+
+    def train(self,
+              data,
+              targets,
+              val_split=0.2,
+              verbose=True):
+        torch.backends.cudnn.benchmark = True
+        use_gpu = torch.cuda.is_available()
+
+        ### Configure settings for model type
+        if self.predictor_type == 'classifier':
+            predictor_loss = classifier_loss
+        elif self.predictor_type == 'regressor':
+            predictor_loss = regressor_loss
+
+        ### Load data and format for training
+        self.n_samples = data.shape[0]
+        self.batch_size = self.args.batch_size
+        self.n_val_samples = int(val_split*self.n_samples)
+        self.n_train_samples = self.n_samples - self.n_val_samples
+
+        targets = targets.squeeze()
+        data = np.expand_dims(data, 5)
+        data[:,0,0,0,0,0] = targets
+
+        train_indices = np.random.choice(np.arange(self.n_samples), \
+                        size=self.n_train_samples, replace=False)
+        val_indices = np.array(list(set(np.arange(self.n_samples)) - set(train_indices)))
+        train_data = data[train_indices, :]
+        val_data = data[val_indices, :]
+
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size=self.args.batch_size,
+                                                   shuffle=True, num_workers=0,
+                                                   pin_memory=False)
+        val_loader = torch.utils.data.DataLoader(val_data, batch_size=self.args.batch_size,
+                                                 shuffle=True, num_workers=0,
+                                                 pin_memory=False)
+
+        if verbose:
+            sys.stdout.write('\r'+'Data loaded...\n')
+
+        ### Set up network model and optimizer
+        if use_gpu:
+            self.network.cuda()
+
+        self.param_groups = get_param_groups(self.network, self.args)
+        self.optimizer = Adam(self.param_groups, lr=self.args.initial_lr)
+        self.optimizer.zero_grad()
+
+        if verbose:
+            sys.stdout.write('\r'+'Network built...\n')
+
+        ### Train
+        for epoch in range(self.args.training_epochs):
+            self.optimizer, _ = lr_scheduler_exponential(self.optimizer, epoch,
+                                                    self.args.initial_lr,
+                                                    self.args.lr_decay_start,
+                                                    self.args.lr_decay_base,
+                                                    verbose=True)
+
+            ### Batch Loop
+            self.network.train()
+
+            for batch_idx, data in enumerate(train_loader):
+                if use_gpu:
+                    data = data.cuda()
+                inputs = data[:,:,:,:,:,0]
+                targets = data[:,0,0,0,0,0]
+
+                x = torch.autograd.Variable(inputs)
+                y = torch.autograd.Variable(targets)
+
+                # Forward and backward propagation
+                predictions = self.network(x)
+
+                pred_l = predictor_loss(y, predictions)
+                if self.args.predictor == 'feedforward':
+                    vae_l = 0
+                elif self.args.predictor == 'vae':
+                    vae_l = vae_loss(x, vae_out, mu, logvar)
+                loss = vae_l + pred_l
+                print(loss)
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()

@@ -2,8 +2,9 @@
 *.cache
 *mutex
 
-# Testing script
+# Testing scripts
 test.py
+voxels.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
