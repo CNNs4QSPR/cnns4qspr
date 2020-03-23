@@ -4,6 +4,7 @@
 
 # Testing script
 test.py
+voxels.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
