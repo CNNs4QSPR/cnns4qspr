@@ -10,6 +10,7 @@ def vae_loss(vae_in, vae_out, mu, logvar):
     return abs(BCE) + abs(KLD)
 
 def classifier_loss(labels, predictions):
+    labels = labels.long()
     PCE = F.cross_entropy(predictions, labels, reduction='mean')
     return PCE
 

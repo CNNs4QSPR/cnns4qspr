@@ -2,7 +2,7 @@
 *.cache
 *mutex
 
-# Testing script
+# Testing scripts
 test.py
 voxels.npy
 

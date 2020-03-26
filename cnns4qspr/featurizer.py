@@ -58,7 +58,7 @@ def featurize(field, channels='all'):
         channels = list(field.keys())
 
     for atom in channels:
-        input_tensor = field[atom]
+        input_tensor = torch.Tensor(field[atom]).unsqueeze(0).unsqueeze(0)
         feature_vec[atom] = cnn(input_tensor).data.cpu().numpy()
 
     return feature_vec

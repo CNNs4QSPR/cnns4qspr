@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from cnns4qspr.featurizer import load_cnn
 
 def outer_block1_hook(module, input_, output):
     global outer_block1_out
@@ -67,7 +68,7 @@ def plot_field(
         returned
     """
     # if the cube is coming for the CathData class, it's indexed differently
-    cube = field[0][0].numpy()
+    cube = field
 
     cube /= cube.max()
 
@@ -110,8 +111,8 @@ def plot_field(
 
 
 def plot_internals(
-        model,
         field,
+        model='default',
         block=0,
         channel=0,
         threshold_on=True,
@@ -121,12 +122,12 @@ def plot_internals(
     convolutional layers inside the model.
 
     Parameters:
+        field (pytorch tensor, required): A field from a field
+            dictionary (see make_fields or voxelize)
+
         model (pytorch neural network, required): The CNN model that
             data can be sent through. The model object can be
             constructed by using featurizer.load_cnn()
-
-        field (pytorch tensor, required): A field from a field
-            dictionary (see make_fields or voxelize)
 
         block (int, optional): Any of the 5 major blocks contained in
             the model object. This integer determines at which stage of
@@ -149,6 +150,9 @@ def plot_internals(
         Only returns if feature_on=True
     """
 
+    if model == 'default':
+        model = load_cnn('cnn_no_vae.ckpt')
+
     model.blocks[0].register_forward_hook(outer_block1_hook)
     model.blocks[1].register_forward_hook(outer_block2_hook)
     model.blocks[2].register_forward_hook(outer_block3_hook)
@@ -156,6 +160,8 @@ def plot_internals(
     model.blocks[4].register_forward_hook(outer_block5_hook)
     model.eval()
 
+    field = torch.Tensor(field).unsqueeze(0)
+    field = field.unsqueeze(0)
     xval = torch.autograd.Variable(field)
     feature_vec = model(xval)
     blocks = [outer_block1_out,
@@ -164,14 +170,14 @@ def plot_internals(
               outer_block4_out,
               outer_block5_out]
 
-    internal_field = blocks[block][:, channel, :, :, :].detach().view(1,1,50,50,50)
+    internal_field = blocks[block][:, channel, :, :, :].detach().numpy().squeeze()
     if threshold_on:
         fig = plot_field(internal_field, show=False)
     else:
         fig = plot_field(internal_field, threshold=0.0001, show=False)
     fig.show()
+
     if feature_on:
-        feature = feature_vec
+        return feature_vec
     else:
-        feature = None
-    return feature
+        pass

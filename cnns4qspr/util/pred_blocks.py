@@ -14,7 +14,11 @@ class VAE(nn.Module):
         super().__init__()
 
         self.input_size = input_size
+        self.output_size = n_output
         self.latent_size = latent_size
+        self.encoder = encoder
+        self.decoder = decoder
+        self.predictor = predictor
         self.type = type
         self.info = {'type': type,
                      'latent_size': latent_size,
@@ -58,16 +62,17 @@ class VAE(nn.Module):
         h3 = F.relu(self.layers[3](z))
         return torch.sigmoid(self.layers[4](h3))
 
+    def sample_latent_space(self, cnn_output):
+        mu, logvar = self.encode(cnn_output.view(-1, self.input_size))
+        z = self.reparameterize(mu, logvar)
+        return z
+
     def forward(self, x):
         mu, logvar = self.encode(x.view(-1, self.input_size))
         z = self.reparameterize(mu, logvar)
         predictions = self.predict(mu)
         return self.decode(z), mu, logvar, predictions
 
-    def sample_latent_space(self, cnn_output):
-        mu, logvar = self.encode(cnn_output.view(-1, self.input_size))
-        z = self.reparameterize(mu, logvar)
-        return z
 
 class FeedForward(nn.Module):
     def __init__(self,
@@ -78,7 +83,9 @@ class FeedForward(nn.Module):
         super().__init__()
 
         self.input_size = input_size
+        self.output_size = n_output
         self.type = type
+        self.predictor = predictor
         self.info = {'type': type,
                      'output_nodes': n_output,
                      'input_size': input_size,
