@@ -18,6 +18,8 @@ class network(ResNet):
                     # [[(8, 8, 8, 8)] * 2] * 2 + [[(8, 8, 8, 8), (128, 0, 0, 0)]]]  # 256 channels
                     [[(16, 16, 16, 16)] * 2] * 2 + [[(16, 16, 16, 16), (256, 0, 0, 0)]]]  # 256 channels
 
+        self.output_size = features[4][-1][-1][0]
+
         global OuterBlock
         if args is None:
             common_params = {

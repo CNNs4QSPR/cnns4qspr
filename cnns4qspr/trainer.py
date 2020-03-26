@@ -6,6 +6,7 @@ features.
 
 import os
 import sys
+import copy
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -17,6 +18,7 @@ from se3cnn.util.optimizers_L1L2 import Adam
 from se3cnn.util.lr_schedulers import lr_scheduler_exponential
 from cnns4qspr.util.pred_blocks import VAE, FeedForward
 from cnns4qspr.util.losses import vae_loss, classifier_loss, regressor_loss
+from cnns4qspr.util.tools import list_parser
 
 class Trainer():
     """
@@ -505,39 +507,168 @@ class CNNTrainer():
                  input_size,
                  output_size,
                  args):
-        self.model = args.model
+        self.args = args
+        self.model = self.args.model
         self.network_module = importlib.import_module('cnns4qspr.se3cnn_v3.networks.{:s}.{:s}'.format(self.model, self.model))
         self.input_size = input_size
         self.output_size = output_size
-        self.args = args
-        self.predictor_type = args.predictor_type
-        if args.predictor == 'feedforward':
-            self.predictor = FeedForward(type=self.predictor_type,
-                                         n_output=self.output_size)
-        elif args.predictor == 'vae':
-            self.predictor = VAE(type=self.predictor_type,
-                                 latent_size=latent_size,
-                                 n_output=self.output_size)
-
         self.network = self.network_module.network(n_input=self.input_size,
-                                                   args=args)
+                                                   args=self.args)
+        self.predictor_type = self.args.predictor_type
+        if self.predictor_type == 'regressor':
+            self.output_size = 1
+        self.build_predictor(predictor_class=self.args.predictor,
+                             type=self.predictor_type,
+                             input_size=self.network.output_size,
+                             output_size=self.output_size,
+                             latent_size=self.args.latent_size,
+                             predictor=self.args.predictor_layers,
+                             encoder=self.args.encoder_layers,
+                             decoder=self.args.decoder_layers)
+        self.blocks = [block for block in self.network.blocks if block is not None]
+        self.blocks.append(self.predictor)
+        self.network.blocks = nn.Sequential(*[block for block in self.blocks if block is not None])
+        self.history = {'train_loss': [],
+                        'val_loss': [],
+                        'train_predictor_loss': [],
+                        'val_predictor_loss': [],
+                        'train_vae_loss': [],
+                        'val_vae_loss': [],
+                        'train_acc': [],
+                        'val_acc': []}
+        self.current_state = {'state_dict': None,
+                              'optimizer': None,
+                              'epoch': None,
+                              'best_acc': np.nan,
+                              'best_loss': np.nan,
+                              'history': self.history,
+                              'input_size': self.input_size,
+                              'output_size': self.output_size,
+                              'predictor_architecture': self.predictor_architecture,
+                              'args': self.args}
+        self.best_state = {'state_dict': None,
+                           'optimizer': None,
+                           'epoch': None,
+                           'best_acc': 0,
+                           'best_loss': np.inf,
+                           'history': None,
+                           'input_size': self.input_size,
+                           'output_size': self.output_size,
+                           'predictor_architecture': self.predictor_architecture,
+                           'args': self.args}
+        self.n_epochs = 0
+        self.best_acc = 0
+        self.best_loss = np.inf
+        self.loaded = False
+
+    def build_predictor(self,
+                        predictor_class,
+                        type,
+                        input_size,
+                        output_size,
+                        latent_size,
+                        predictor,
+                        encoder,
+                        decoder):
+        predictor = list_parser(predictor)
+        encoder = list_parser(encoder)
+        decoder = list_parser(decoder)
+        if predictor_class == 'feedforward':
+            self.predictor = FeedForward(type=type,
+                                         n_output=output_size,
+                                         input_size=input_size,
+                                         predictor=predictor)
+            self.predictor_architecture = {'output_size': self.output_size,
+                                           'input_size': input_size,
+                                           'predictor': self.predictor.predictor}
+        elif predictor_class == 'vae':
+            self.predictor = VAE(latent_size=latent_size,
+                                 type=type,
+                                 n_output=output_size,
+                                 input_size=input_size,
+                                 encoder=encoder,
+                                 decoder=decoder,
+                                 predictor=predictor)
+            self.predictor_architecture = {'output_size': self.output_size,
+                                           'input_size': input_size,
+                                           'latent_size': self.args.latent_size,
+                                           'encoder': self.predictor.encoder,
+                                           'decoder': self.predictor.decoder,
+                                           'predictor': self.predictor.predictor}
+            self.network.blocks[5].register_forward_hook(self.vae_hook)
+
+    def vae_hook(self, module, input_, output):
+        global cnn_out
+        cnn_out = output
+
+    def save(self, mode='best', save_fn='best_model.ckpt', save_path='checkpoints'):
+        os.makedirs(save_path, exist_ok=True)
+        if os.path.splitext(save_fn)[1] == '':
+            save_fn += '.ckpt'
+        ckpt_save = {}
+        if mode == 'best':
+            for key in self.best_state.keys():
+                ckpt_save[key] = self.best_state[key]
+            torch.save(ckpt_save, os.path.join(save_path, save_fn))
+        elif mode == 'current':
+            for key in self.current_state.keys():
+                ckpt_save[key] = self.current_state[key]
+            torch.save(ckpt_save, os.path.join(save_path, save_fn))
+
+    def load(self, checkpoint_path):
+        loaded_checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        for key in self.current_state.keys():
+            self.current_state[key] = loaded_checkpoint[key]
+
+        self.args = self.current_state['args']
+        self.model = self.args.model
+        self.network_module = importlib.import_module('cnns4qspr.se3cnn_v3.networks.{:s}.{:s}'.format(self.model, self.model))
+        self.input_size = self.current_state['input_size']
+        self.output_size = self.current_state['output_size']
+        self.network = self.network_module.network(n_input=self.input_size,
+                                                   args=self.args)
+        self.predictor_type = self.args.predictor_type
+        self.predictor_architecture = self.current_state['predictor_architecture']
+        self.build_predictor(predictor_class=self.args.predictor,
+                             type=self.predictor_type,
+                             input_size=self.network.output_size,
+                             output_size=self.output_size,
+                             latent_size=self.args.latent_size,
+                             predictor=self.args.predictor_layers,
+                             encoder=self.args.encoder_layers,
+                             decoder=self.args.decoder_layers)
         self.blocks = [block for block in self.network.blocks if block is not None]
         self.blocks.append(self.predictor)
         self.network.blocks = nn.Sequential(*[block for block in self.blocks if block is not None])
 
+        self.history = self.current_state['history']
+        self.n_epochs = self.current_state['epoch']
+        self.best_acc = self.current_state['best_acc']
+        self.best_loss = self.current_state['best_loss']
+        self.loaded = True
+
     def train(self,
               data,
               targets,
+              epochs='args',
               val_split=0.2,
+              store_best=True,
+              save_best=False,
+              save_fn='best_model.ckpt',
+              save_path='checkpoints',
               verbose=True):
         torch.backends.cudnn.benchmark = True
         use_gpu = torch.cuda.is_available()
+        if epochs == 'args':
+            epochs = self.args.training_epochs
 
         ### Configure settings for model type
         if self.predictor_type == 'classifier':
             predictor_loss = classifier_loss
+            store_criterion = 'val_acc'
         elif self.predictor_type == 'regressor':
             predictor_loss = regressor_loss
+            store_criterion = 'val_loss'
 
         ### Load data and format for training
         self.n_samples = data.shape[0]
@@ -573,21 +704,31 @@ class CNNTrainer():
         self.optimizer = Adam(self.param_groups, lr=self.args.initial_lr)
         self.optimizer.zero_grad()
 
+        if self.loaded:
+            self.network.load_state_dict(self.current_state['state_dict'])
+            self.optimizer.load_state_dict(self.current_state['optimizer'])
+
         if verbose:
             sys.stdout.write('\r'+'Network built...\n')
 
         ### Train
-        for epoch in range(self.args.training_epochs):
-            self.optimizer, _ = lr_scheduler_exponential(self.optimizer, epoch,
-                                                    self.args.initial_lr,
-                                                    self.args.lr_decay_start,
-                                                    self.args.lr_decay_base,
-                                                    verbose=True)
+        for epoch in range(epochs):
+            self.optimizer, _ = lr_scheduler_exponential(self.optimizer,
+                                                         epoch+self.n_epochs,
+                                                         self.args.initial_lr,
+                                                         self.args.lr_decay_start,
+                                                         self.args.lr_decay_base,
+                                                         verbose=False)
 
             ### Batch Loop
             self.network.train()
+            total_losses = []
+            vae_losses = []
+            predictor_losses = []
+            accs = []
 
             for batch_idx, data in enumerate(train_loader):
+                print('Train {}_{}'.format(epoch, batch_idx))
                 if use_gpu:
                     data = data.cuda()
                 inputs = data[:,:,:,:,:,0]
@@ -597,15 +738,105 @@ class CNNTrainer():
                 y = torch.autograd.Variable(targets)
 
                 # Forward and backward propagation
-                predictions = self.network(x)
-
-                pred_l = predictor_loss(y, predictions)
                 if self.args.predictor == 'feedforward':
-                    vae_l = 0
+                    predictions = self.network(x)
+                    pred_l = predictor_loss(y, predictions)
+                    vae_l = torch.Tensor([np.nan])
+                    loss = pred_l
                 elif self.args.predictor == 'vae':
-                    vae_l = vae_loss(x, vae_out, mu, logvar)
-                loss = vae_l + pred_l
-                print(loss)
+                    vae_out, mu, logvar, predictions = self.network(x)
+                    vae_in = torch.autograd.Variable(cnn_out)
+                    pred_l = predictor_loss(y, predictions)
+                    vae_l = vae_loss(vae_in, vae_out, mu, logvar)
+                    loss = vae_l + pred_l
+
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+
+                _, argmax = torch.max(predictions, 1)
+                acc = (argmax.squeeze() == targets).float().mean()
+
+                total_losses.append(loss.item())
+                predictor_losses.append(pred_l.item())
+                vae_losses.append(vae_l.item())
+                accs.append(acc.item())
+
+            self.history['train_loss'].append(np.mean(total_losses))
+            self.history['train_predictor_loss'].append(np.mean(predictor_losses))
+            self.history['train_vae_loss'].append(np.mean(vae_losses))
+            self.history['train_acc'].append(np.mean(accs))
+            self.n_epochs += 1
+
+            ### Validation Loop
+            self.network.eval()
+            total_losses = []
+            vae_losses = []
+            predictor_losses = []
+            accs = []
+
+            for batch_idx, data in enumerate(val_loader):
+                print('Val {}_{}'.format(epoch, batch_idx))
+                if use_gpu:
+                    data = data.cuda()
+                inputs = data[:,:,:,:,:,0]
+                targets = data[:,0,0,0,0,0]
+
+                x = torch.autograd.Variable(inputs)
+                y = torch.autograd.Variable(targets)
+
+                # Forward prop
+                if self.args.predictor == 'feedforward':
+                    predictions = self.network(x)
+                    pred_l = predictor_loss(y, predictions)
+                    vae_l = torch.Tensor([np.nan])
+                    loss = pred_l
+                elif self.args.predictor == 'vae':
+                    vae_out, mu, logvar, predictions = self.network(x)
+                    vae_in = torch.autograd.Variable(cnn_out)
+                    pred_l = predictor_loss(y, predictions)
+                    vae_l = vae_loss(vae_in, vae_out, mu, logvar)
+                    loss = vae_l + pred_l
+
+                _, argmax = torch.max(predictions, 1)
+                acc = (argmax.squeeze() == targets).float().mean()
+
+                total_losses.append(loss.item())
+                predictor_losses.append(pred_l.item())
+                vae_losses.append(vae_l.item())
+                accs.append(acc.item())
+
+            self.history['val_loss'].append(np.mean(total_losses))
+            self.history['val_predictor_loss'].append(np.mean(predictor_losses))
+            self.history['val_vae_loss'].append(np.mean(vae_losses))
+            self.history['val_acc'].append(np.mean(accs))
+
+            self.current_state['state_dict'] = self.network.state_dict()
+            self.current_state['optimizer'] = self.optimizer.state_dict()
+            self.current_state['epoch'] = self.n_epochs
+
+            if store_best:
+                if store_criterion == 'val_acc':
+                    if np.mean(accs) > self.best_acc:
+                        self.best_acc = np.mean(accs)
+                        self.best_state['state_dict'] = copy.deepcopy(self.network.state_dict())
+                        self.best_state['optimizer'] = copy.deepcopy(self.optimizer.state_dict())
+                        self.best_state['epoch'] = self.n_epochs
+                        self.best_state['best_acc'] = self.best_acc
+                        self.best_state['history'] = copy.deepcopy(self.history)
+                    else:
+                        pass
+                    if save_best:
+                        self.save(mode='best', save_fn=save_fn, save_path=save_path)
+                elif store_criterion == 'val_loss':
+                    if np.mean(total_losses) < self.best_loss:
+                        self.best_loss = np.mean(total_losses)
+                        self.best_state['state_dict'] = copy.deepcopy(self.network.state_dict())
+                        self.best_state['optimizer'] = copy.deepcopy(self.optimizer.state_dict())
+                        self.best_state['epoch'] = self.n_epochs
+                        self.best_state['best_loss'] = self.best_loss
+                        self.best_state['history'] = copy.deepcopy(self.history)
+                    else:
+                        pass
+                    if save_best:
+                        self.save(mode='best', save_fn=save_fn, save_path=save_path)
