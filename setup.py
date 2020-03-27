@@ -27,7 +27,6 @@ setup(
 			'biopandas',
 			'se3cnn',
 			'lie_learn',
-            'nomkl',
         		],
 	dependency_links=[
 			'https://github.com/AMLab-Amsterdam/lie_learn',
