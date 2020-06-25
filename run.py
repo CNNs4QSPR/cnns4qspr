@@ -5,6 +5,8 @@ from cnns4qspr.trainer import Trainer, CNNTrainer
 import argparse
 import numpy as np
 
+
+### Script for training model on local machine
 def run():
     voxels = voxelize('examples/sample_pdbs', path_type='folder', channels=['backbone', 'polar'])
     targets = np.random.rand(voxels.shape[0])
