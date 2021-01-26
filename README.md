@@ -2,13 +2,15 @@
 
 # cnns4qspr
 
-A package for creating rich, equivariant, structural and chemical features from protein structure data.
+A package for creating rich, equivariant, structural and chemical features from protein structure data. Model code for this project is based on the [tensor field networks](https://github.com/mariogeiger/se3cnn) developed by [Riley et al.](https://arxiv.org/abs/1802.08219) and [Cohen et al.](https://arxiv.org/abs/1807.02547)
 
 ## Installation
 
 1. `pip install git+https://github.com/AMLab-Amsterdam/lie_learn`
 2. `pip install git+https://github.com/CNNs4QSPR/se3cnn.git`
 3. `pip install git+https://github.com/CNNs4QSPR/cnns4qspr.git`
+
+(If .ckpt files do not download immediately you can also find them [here](https://drive.google.com/drive/folders/1Y3Dtk72I_A6bSoPXZ0wamCXMzJeQVs6X?usp=sharing))
 
 ## Documentation
 
